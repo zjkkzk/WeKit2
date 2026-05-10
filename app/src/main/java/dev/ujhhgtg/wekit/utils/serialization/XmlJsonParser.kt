@@ -612,7 +612,7 @@ private class XmlTokener(
             try {
                 reader.read()
             } catch (e: IOException) {
-                throw JSONException(e)
+                throw JsonException(e)
             }
         }
 
@@ -631,7 +631,7 @@ private class XmlTokener(
         try {
             reader.mark(1)
         } catch (e: IOException) {
-            throw JSONException("Unable to preserve stream position", e)
+            throw JsonException("Unable to preserve stream position", e)
         }
 
         try {
@@ -641,14 +641,14 @@ private class XmlTokener(
             }
             reader.reset()
         } catch (e: IOException) {
-            throw JSONException("Unable to read the next character from the stream", e)
+            throw JsonException("Unable to read the next character from the stream", e)
         }
         return true
     }
 
     fun back() {
         if (usePrevious || index <= 0) {
-            throw JSONException("Stepping back two steps is not supported")
+            throw JsonException("Stepping back two steps is not supported")
         }
         decrementIndexes()
         usePrevious = true
@@ -688,14 +688,14 @@ private class XmlTokener(
         }
     }
 
-    fun syntaxError(message: String): JSONException = JSONException(message + toString())
+    fun syntaxError(message: String): JsonException = JsonException(message + toString())
 
     override fun toString(): String {
         return " at $index [character $character line $line]"
     }
 }
 
-class JSONException : RuntimeException {
+class JsonException : RuntimeException {
     constructor(message: String) : super(message)
     constructor(cause: Throwable) : super(cause)
     constructor(message: String, cause: Throwable) : super(message, cause)

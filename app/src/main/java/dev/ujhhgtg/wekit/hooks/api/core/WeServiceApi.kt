@@ -1,8 +1,10 @@
 package dev.ujhhgtg.wekit.hooks.api.core
 
+import com.highcapable.kavaref.condition.type.Modifiers
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
+import dev.ujhhgtg.wekit.hooks.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
@@ -18,9 +20,14 @@ object WeServiceApi : ApiHookItem(), IResolvesDex {
     private val classConversationStorage by dexClass()
     private val classStorageFeatureService by dexClass()
     private val classChatroomService by dexClass()
+    private val classImageInfoStorage by dexClass()
+    private val classDownloadImageService by dexClass()
+    private val classImageFeatureService by dexClass()
     private val methodApiManagerGetApi by dexMethod()
     private val methodMmKernelGetServiceImpl by dexMethod()
     private val classMsgInfoStorage by dexClass()
+    private val methodVideoPathFeatureServiceRestoreMp4Path by dexMethod() // formerly VideoInfoStorage
+    private val classVideoService by dexClass()
 
     val classApiManager: Class<*> by lazy { methodApiManagerGetApi.method.declaringClass }
 
@@ -57,6 +64,37 @@ object WeServiceApi : ApiHookItem(), IResolvesDex {
         return methodApiManagerGetApi.method.invoke(apiManager, clazz.interfaces[0])!!
     }
 
+    val imageInfoStorage by lazy {
+        classImageFeatureService.asResolver()
+            .firstMethod {
+                modifiers { it.contains(Modifiers.STATIC) }
+                returnType = classImageInfoStorage.clazz
+            }.invoke()!!
+    }
+
+    fun getImageMd5FromMsgInfo(msgInfo: MessageInfo): String {
+        val imageInfoStorage = imageInfoStorage
+        return imageInfoStorage.asResolver()
+            .firstMethod {
+                returnType = String::class
+                parameters(WeMessageApi.classMsgInfo.clazz)
+            }.invoke(msgInfo.instance)!! as String
+    }
+
+    val videoPathFeatureService by lazy {
+        classVideoService.asResolver()
+            .firstMethod {
+                modifiers { it.contains(Modifiers.STATIC) }
+                returnType = methodVideoPathFeatureServiceRestoreMp4Path.method.declaringClass
+            }.invoke()!!
+    }
+
+    fun getVideoMp4PathFromMsgInfo(msgInfo: MessageInfo): String {
+        return methodVideoPathFeatureServiceRestoreMp4Path.method.invoke(
+            videoPathFeatureService, msgInfo.imagePath
+        ) as String
+    }
+
     override fun resolveDex(dexKit: DexKitBridge) {
         val classMmKernel = dexKit.findClass {
             matcher {
@@ -87,6 +125,25 @@ object WeServiceApi : ApiHookItem(), IResolvesDex {
                         usingEqStrings("MicroMsg.EmojiFeatureService", "[onAccountInitialized]")
                     }
                 }
+            }
+        }
+
+        classImageInfoStorage.find(dexKit) {
+            matcher {
+                usingEqStrings("MicroMsg.ImgInfoStorage", "generateMd5: %s, %s")
+            }
+        }
+
+        classDownloadImageService.find(dexKit) {
+            matcher {
+                usingEqStrings("ModelImage.DownloadImgService", "cancelNetScene reset curTaskInfo (%s %s %s)")
+            }
+        }
+
+        classImageFeatureService.find(dexKit) {
+            matcher {
+                addFieldForType(classImageInfoStorage.clazz)
+                addFieldForType(classDownloadImageService.clazz)
             }
         }
 
@@ -129,6 +186,27 @@ object WeServiceApi : ApiHookItem(), IResolvesDex {
         classChatroomService.find(dexKit) {
             matcher {
                 usingEqStrings("MicroMsg.ChatroomService", "[isEnableRoomManager]")
+            }
+        }
+
+        val results = dexKit.findMethod {
+            // >= 8.0.61
+            matcher {
+                usingEqStrings("MicroMsg.C2CVideoPathFeatureService", "success restore file, from ", ".mp4")
+            }
+        }.ifEmpty {
+            // < 8.0.61
+            dexKit.findMethod {
+                matcher {
+                    usingEqStrings("MicroMsg.VideoInfoStorage", "success restore file, from ", ".mp4")
+                }
+            }
+        }
+        methodVideoPathFeatureServiceRestoreMp4Path.setDescriptor(results.single())
+
+        classVideoService.find(dexKit) {
+            matcher {
+                usingEqStrings("MicroMsg.VideoService", "MicroMsg.SubCoreVideo", "quitVideoSendThread")
             }
         }
 

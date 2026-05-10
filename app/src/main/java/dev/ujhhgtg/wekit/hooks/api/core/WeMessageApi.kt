@@ -26,6 +26,7 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
+
 @SuppressLint("DiscouragedApi")
 @HookItem(path = "API/消息发送服务", description = "提供文本、图片、文件、语音消息发送能力")
 object WeMessageApi : ApiHookItem(), IResolvesDex {
@@ -37,6 +38,9 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
     private val classNetSceneQueue by dexClass()
     val classNetSceneBase by dexClass()
     private val classNetSceneObserverOwner by dexClass()
+
+    // FIXME: new versions no longer has NetSceneUploadMsgImg
+    //    private val ctorNetSceneUploadMsgImg by dexConstructor()
     private val methodGetSendMsgObject by dexMethod()
     private val methodPostToQueue by dexMethod()
     private val methodShareFile by dexMethod()
@@ -136,6 +140,19 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
                 }
             }
         }
+
+//        val str = String::class.java
+//
+//        ctorNetSceneUploadMsgImg.find(dexKit) {
+//            searchPackages("com.tencent.mm.modelimage")
+//            matcher {
+//                declaredClass {
+//                    usingEqStrings("MicroMsg.NetSceneUploadMsgImg", "/cgi-bin/micromsg-bin/uploadmsgimg")
+//                }
+//
+//                paramTypes(int, str, str, str, int, null, int, str, str, bool, int)
+//            }
+//        }
 
         classNetSceneSendMsg.find(dexKit) {
             matcher {
@@ -583,6 +600,27 @@ object WeMessageApi : ApiHookItem(), IResolvesDex {
             false
         }
     }
+
+    // FIXME: new versions no longer has NetSceneUploadMsgImg
+//    fun sendImageByMd5(toUser: String, md5: String, appMsgAppId: String?) {
+//        val xml: String?
+//        val wxId = WeApi.selfWxId
+//        if (appMsgAppId != null) {
+//            val json = JSONObject()
+//            val json2 = JSONObject()
+//            val json3 = JSONObject()
+//            json3.put("appid", appMsgAppId)
+//            json2.put("appinfo", json3)
+//            json.put("msg", json2)
+//            val converter = JsonToXmlConverter(json, emptyHashSet(), emptyHashSet())
+//            xml = converter.toString()
+//        } else {
+//            xml = null
+//        }
+//        WeNetSceneApi.addNetSceneToQueue(
+//            ctorNetSceneUploadMsgImg.newInstance(4, wxId, toUser, md5, 1, null, 0, xml, "", true, 0)
+//        )
+//    }
 
     /** 发送文本消息 */
     fun sendText(toUser: String, text: String): Boolean {

@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.hooks.api.ui
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.graphics.drawable.Drawable
 import android.view.View
 import com.highcapable.kavaref.extension.isSubclassOf
@@ -28,8 +29,18 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IResolvesDex {
         val id: Int,
         val text: String, val drawable: () -> Drawable,
         val shouldShow: (MessageInfo) -> Boolean,
-        val onClick: (View, Any, MessageInfo) -> Unit /* 2: ChattingContext */
+        val onClick: (View, ChattingContext, MessageInfo) -> Unit
     )
+
+    // for clearer semantics; this simply compiles to Object in JVM bytecode
+    @JvmInline
+    value class ChattingContext(val instance: Any) {
+        val activity: Activity
+            get() = instance.asResolver()
+                .firstMethod {
+                    returnType = Activity::class
+                }.invoke()!! as Activity
+    }
 
     private val TAG = This.Class.simpleName
 
@@ -102,7 +113,7 @@ object WeChatMessageContextMenuApi : ApiHookItem(), IResolvesDex {
                     if (item.id == menuItem.itemId) {
                         item.onClick(
                             currentView,
-                            chattingContext,
+                            ChattingContext(chattingContext),
                             msgInfoWrapper
                         )
                         result = null

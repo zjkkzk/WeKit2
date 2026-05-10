@@ -1,7 +1,11 @@
+@file:Suppress("NOTHING_TO_INLINE")
+
 package dev.ujhhgtg.wekit.hooks.api.core.models
 
 import dev.ujhhgtg.wekit.hooks.api.core.WeApi
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
+import dev.ujhhgtg.wekit.utils.removeWxIdPrefix
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import dev.ujhhgtg.wekit.utils.serialization.XmlJsonParser
 import dev.ujhhgtg.wekit.utils.serialization.asInt
@@ -24,6 +28,16 @@ class MessageInfo(val instance: Any) {
     val createTime by lazy { getFieldByName<Long>(instance, "field_createTime") }
     val talker by lazy { getFieldByName<String>(instance, "field_talker") }
     val content by lazy { getFieldByName<String>(instance, "field_content") }
+
+    val actualContent: String
+        get() {
+            var text = content
+            if (isInGroupChat) {
+                text = text.removeWxIdPrefix()
+            }
+            return text
+        }
+
     val imagePath by lazy { getFieldByName<String>(instance, "field_imgPath") }
     val lvBuffer by lazy { getFieldByName<ByteArray>(instance, "field_lvbuffer") }
     val talkerId by lazy { getFieldByName<Int>(instance, "field_talkerId") }
@@ -55,23 +69,34 @@ class MessageInfo(val instance: Any) {
 
     val isSelfSender get() = isSend != 0
 
-    @Suppress("NOTHING_TO_INLINE")
-    inline fun toPatMessage() = PatMessage(content)
+    inline fun toPatMessage(): PatMessage? {
+        if (type != MessageType.PAT)
+            return null
+
+        return PatMessage(content)
+    }
+
+    inline fun toQuoteMessage(): QuoteMessage? {
+        if (type != MessageType.QUOTE)
+            return null
+
+        return QuoteMessage(content)
+    }
 
     class PatMessage(jsonString: String) {
 
         private val json = DefaultJson.parseToJsonElement(jsonString)
-        val createTime by lazy { this.recordObj["createTime"]!!.asLong }
-        val fromUser by lazy { this.recordObj["fromUser"]!!.asString }
-        val pattedUser by lazy { this.recordObj["pattedUser"]!!.asString }
-        val readStatus by lazy { this.recordObj["readStatus"]!!.asInt }
+        val createTime by lazy { recordObj["createTime"]!!.asLong }
+        val fromUser by lazy { recordObj["fromUser"]!!.asString }
+        val pattedUser by lazy { recordObj["pattedUser"]!!.asString }
+        val readStatus by lazy { recordObj["readStatus"]!!.asInt }
         val recordNum by lazy { json.getByPath("msg.appmsg.patMsg.records.recordNum")!!.asInt }
-        val showModifyTip by lazy { this.recordObj["showModifyTip"]!!.asInt }
-        val svrId by lazy { this.recordObj["svrId"]!!.asLong }
+        val showModifyTip by lazy { recordObj["showModifyTip"]!!.asInt }
+        val svrId by lazy { recordObj["svrId"]!!.asLong }
         val talker by lazy { json.getByPath("msg.appmsg.patMsg.chatUser")!!.asString }
-        val template by lazy { this.recordObj["template"]!!.asString }
+        val template by lazy { recordObj["template"]!!.asString }
         val recordObj: JsonElement by lazy {
-            val byPath = this.json.getByPath("msg.appmsg.patMsg.records.record")!!
+            val byPath = json.getByPath("msg.appmsg.patMsg.records.record")!!
             if (byPath is JsonArray) {
                 return@lazy byPath.jsonArray[0]
             }
@@ -79,19 +104,19 @@ class MessageInfo(val instance: Any) {
         }
     }
 
+    class QuoteMessage(jsonString: String) {
+        private val json = run {
+            val json = XmlJsonParser.toJsonObject(jsonString.cleanupXml())
+            WeLogger.d("test", json.toString())
+            json
+        }
+
+        val title by lazy { json.getByPath("msg.appmsg.title")!!.asString }
+    }
+
     class TransferMessage(jsonString: String) {
 
-        private val json = run {
-            val xml = "<msg>" + jsonString
-                .substringAfter("<msg>")
-                .substringBeforeLast("</msg>")
-                .replace("\r", "")
-                .replace("\n", "")
-                .replace("\t", "")
-                .replace("<?xml version=\"1.0\"?>", "") + "</msg>"
-
-            XmlJsonParser.toJsonObject(xml)
-        }
+        private val json = XmlJsonParser.toJsonObject(jsonString.cleanupXml())
 
         // 'transcationid' is WeChat's typo
         val transactionId by lazy { json.getByPath("msg.wcpayinfo.transcationid")!!.asString }
@@ -109,6 +134,15 @@ class MessageInfo(val instance: Any) {
                     superclass()
                 }
                 .get()!! as T
+        }
+
+        private fun String.cleanupXml(): String {
+            return "<msg>" + substringAfter("<msg>")
+                .substringBeforeLast("</msg>")
+                .replace("\r", "")
+                .replace("\n", "")
+                .replace("\t", "")
+                .replace("<?xml version=\"1.0\"?>", "") + "</msg>"
         }
     }
 }

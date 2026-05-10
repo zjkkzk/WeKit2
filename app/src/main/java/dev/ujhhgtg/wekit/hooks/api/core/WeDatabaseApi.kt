@@ -3,7 +3,7 @@ package dev.ujhhgtg.wekit.hooks.api.core
 import android.annotation.SuppressLint
 import android.database.Cursor
 import com.tencent.wcdb.database.SQLiteDatabase
-import dev.ujhhgtg.comptime.nameOf
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -34,7 +34,7 @@ object WeDatabaseApi : ApiHookItem(), IResolvesDex {
 
     lateinit var db: SQLiteDatabase
 
-    private val TAG = nameOf(WeDatabaseApi)
+    private val TAG = This.Class.simpleName
 
     val coreStorage by lazy {
         classMmKernel.asResolver()

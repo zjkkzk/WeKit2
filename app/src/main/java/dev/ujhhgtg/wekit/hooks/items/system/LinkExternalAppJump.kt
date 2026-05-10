@@ -101,7 +101,6 @@ object LinkExternalAppJump : SwitchHookItem(),
         val rawUrl = intent.getStringExtra("rawUrl") ?: return
         if (!rawUrl.startsWith("http")) return
         val url = rawUrl.toUri()
-        WeLogger.d(TAG, "host: ${url.host}")
         if (WECHAT_INTERNAL_HOSTS.contains(url.host)) return
 
         val newIntent = Intent(Intent.ACTION_VIEW)

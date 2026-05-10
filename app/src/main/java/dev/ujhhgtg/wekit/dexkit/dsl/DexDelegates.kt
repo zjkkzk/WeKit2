@@ -60,6 +60,10 @@ class DexClassDelegate internal constructor(
         cachedClass = null
     }
 
+    fun setDescriptor(c: ClassData) {
+        setDescriptor(c.name)
+    }
+
     fun setPlaceholderDescriptor() {
         WeLogger.w(nameOf(DexClassDelegate::class), "setting placeholder for $key")
         setDescriptor("com.tencent.mm.ui.LauncherUI")
