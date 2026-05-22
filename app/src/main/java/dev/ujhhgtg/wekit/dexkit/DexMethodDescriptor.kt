@@ -1,9 +1,10 @@
 package dev.ujhhgtg.wekit.dexkit
 
+import dev.ujhhgtg.wekit.utils.reflection.isPrivate
+import dev.ujhhgtg.wekit.utils.reflection.isStatic
 import java.io.Serializable
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
-import java.lang.reflect.Modifier
 
 class DexMethodDescriptor : Serializable {
 
@@ -59,7 +60,7 @@ class DexMethodDescriptor : Serializable {
             while (true) {
                 clz = clz.superclass ?: break
                 for (m in clz.declaredMethods) {
-                    if (Modifier.isPrivate(m.modifiers) || Modifier.isStatic(m.modifiers)) continue
+                    if (m.isPrivate || m.isStatic) continue
                     if (m.name == name && getMethodTypeSig(m) == signature) return m
                 }
             }

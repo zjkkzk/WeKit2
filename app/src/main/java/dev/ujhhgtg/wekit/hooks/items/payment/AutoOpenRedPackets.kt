@@ -16,20 +16,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.net.toUri
-import de.robv.android.xposed.XposedHelpers
+import com.highcapable.kavaref.extension.createInstance
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.hooks.api.core.WeDatabaseListenerApi
-import dev.ujhhgtg.wekit.hooks.api.core.WeNetworkApi
+import dev.ujhhgtg.wekit.hooks.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.hooks.api.core.models.MessageType
+import dev.ujhhgtg.wekit.hooks.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.hooks.core.ClickableHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.ContactsSelectionDialog
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -38,6 +40,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import org.json.JSONObject
 import org.luckypray.dexkit.DexKitBridge
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.thread
 import kotlin.random.Random
 
 @SuppressLint("DiscouragedApi")
@@ -49,8 +52,8 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
 
     private val classReceiveLuckyMoney by dexClass()
     private val classOpenLuckyMoney by dexClass()
-    private val methodOnGYNetEnd by dexMethod()
-    private val methodOnOpenGYNetEnd by dexMethod()
+    private val methodReceiveOnGYNetEnd by dexMethod()
+    private val methodOpenOnGYNetEnd by dexMethod()
 
     private val currentRedPacketMap = ConcurrentHashMap<String, RedPacketInfo>()
 
@@ -66,8 +69,69 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)
-        hookReceiveCallback()
-        hookOpenReqEndCallback()
+
+        methodReceiveOnGYNetEnd.hookAfter {
+            val json = args[2] as? JSONObject ?: return@hookAfter
+            val sendId = json.optString("sendId")
+            val timingIdentifier = json.optString("timingIdentifier")
+
+            if (timingIdentifier.isNullOrEmpty() || sendId.isNullOrEmpty()) return@hookAfter
+
+            val info = currentRedPacketMap[sendId] ?: run {
+                WeLogger.e(TAG, "failed to find red packet in map (sendId=$sendId)")
+                return@hookAfter
+            }
+            WeLogger.i(
+                TAG,
+                "unpack request finished, sending open request ($sendId)"
+            )
+
+            thread(name = "OpenRedPacketThread") {
+                try {
+                    val openReq = classOpenLuckyMoney.clazz.createInstance(
+                        info.msgType, info.channelId, info.sendId, info.nativeUrl,
+                        info.headImg, info.nickName, info.talker,
+                        "v1.0", timingIdentifier, ""
+                    )
+                    WeNetSceneApi.addNetSceneToQueue(openReq) // seems like this simple version works too
+                    // we don't remove packet from map here for use in hookOpenReqEndCallback
+                } catch (e: Throwable) {
+                    WeLogger.e(TAG, "failed to send open request", e)
+                    currentRedPacketMap.remove(sendId)
+                }
+            }
+        }
+
+        methodOpenOnGYNetEnd.hookAfter {
+            val json = args[2] as? JSONObject ?: return@hookAfter
+            val sendId = json.optString("sendId")
+            if (sendId.isNullOrEmpty()) return@hookAfter
+
+            val info = currentRedPacketMap.remove(sendId) ?: return@hookAfter
+
+            val retCode = json.optInt("retcode", -1)
+            if (retCode != 0) {
+                WeLogger.w(TAG, "failed to grab packet (retcode=$retCode, sendId=$sendId)")
+                return@hookAfter
+            }
+
+            val amount = json.optInt("recAmount", 0)
+            if (amount <= 0) return@hookAfter
+
+            val displayAmount = amount / 100.0
+
+            val autoReply = WePrefs.getStringOrDef("red_packet_auto_reply", "")
+            if (autoReply.isNotBlank()) {
+                WeMessageApi.sendText(info.talker, autoReply.replace($$"$amount", "¥$displayAmount"))
+            }
+
+            if (!WePrefs.getBoolOrFalse("red_packet_notification")) return@hookAfter
+
+            val displayName = WeDatabaseApi.getDisplayName(info.talker)
+            val isGroup = info.talker.endsWith("@chatroom")
+            val sourceLabel = if (isGroup) "群组" else "私聊"
+            showToast("抢到${sourceLabel}中「${displayName}」的红包 ¥${displayAmount}")
+        }
     }
 
     override fun onInsert(table: String, values: ContentValues) {
@@ -84,8 +148,18 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
         try {
             if (values.getAsInteger("isSend") == 1 && !WePrefs.getBoolOrFalse("red_packet_self")) return
 
-            val content = values.getAsString("content") ?: return
             val talker = values.getAsString("talker") ?: ""
+
+            val useWhitelist = WePrefs.getBoolOrFalse("red_packet_use_whitelist")
+            if (useWhitelist) {
+                val whitelist = WePrefs.getStringSetOrDef("red_packet_whitelist", emptySet())
+                if (talker !in whitelist) return
+            } else {
+                val blacklist = WePrefs.getStringSetOrDef("red_packet_blacklist", emptySet())
+                if (talker in blacklist) return
+            }
+
+            val content = values.getAsString("content") ?: return
 
             var xmlContent = content
             if (!content.startsWith("<") && content.contains(":")) {
@@ -116,111 +190,51 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
                 nickName = nickName
             )
 
-            val isRandomDelay = WePrefs.getBoolOrFalse("red_packet_delay_random")
             val customDelay =
                 WePrefs.getStringOrDef("red_packet_delay_custom", "0").toLongOrNull() ?: 0L
+            val randomRange = (WePrefs.getStringOrDef("red_packet_delay_random_range", "300")
+                .toLongOrNull() ?: 300L).coerceAtLeast(0)
 
-            WeLogger.i(TAG, "config - isRandomDelay=$isRandomDelay, customDelay=$customDelay")
+            WeLogger.i(TAG, "config: customDelay=$customDelay, randomRange=$randomRange")
 
-            val delayTime = if (isRandomDelay) {
+            val delayTime = if (randomRange > 0) {
                 val baseDelay = if (customDelay > 0) customDelay else 1000L
-                val randomOffset = Random.nextLong(-300, 300)
+                val randomOffset = Random.nextLong(-randomRange, randomRange)
                 val finalDelay = (baseDelay + randomOffset).coerceAtLeast(0)
                 WeLogger.i(
                     TAG,
-                    "random delay mode - baseDelay=$baseDelay, randomOffset=$randomOffset, finalDelay=$finalDelay"
+                    "random delay mode: baseDelay=$baseDelay, randomOffset=$randomOffset, finalDelay=$finalDelay"
                 )
                 finalDelay
             } else {
-                WeLogger.i(TAG, "fixed delay mode - delayTime=$customDelay")
+                WeLogger.i(TAG, "fixed delay mode: finalDelay=$customDelay")
                 customDelay
             }
 
-            Thread {
+            thread(name = "ReceiveRedPacketThread") {
                 try {
-                    WeLogger.i(TAG, "started delaying for ${delayTime}ms (sendId=$sendId)")
-                    if (delayTime > 0) Thread.sleep(delayTime)
+                    if (delayTime > 0) {
+                        WeLogger.i(TAG, "started delaying for ${delayTime}ms (sendId=$sendId)")
+                        Thread.sleep(delayTime)
+                    }
 
                     WeLogger.i(
                         TAG,
-                        "delay ended, preparing to send open packet request (sendId=$sendId)"
-                    )
-                    val req = XposedHelpers.newInstance(
-                        classReceiveLuckyMoney.clazz,
-                        msgType, channelId, sendId, nativeUrl, 1, "v1.0", talker
+                        "delay ended, preparing to send receive request (sendId=$sendId)"
                     )
 
-                    WeNetworkApi.sendRequest(req)
-                    WeLogger.i(TAG, "sent unpack packet request (sendId=$sendId)")
+                    val req = classReceiveLuckyMoney.clazz.createInstance(
+                        msgType, channelId, sendId, nativeUrl, 1 /* inWay */, "v1.0" /* ver */, talker
+                    )
+
+                    WeNetSceneApi.addNetSceneToQueue(req) // seems like this simple version works too
+                    WeLogger.i(TAG, "sent receive request (sendId=$sendId)")
                 } catch (e: Throwable) {
-                    WeLogger.e(TAG, "failed to send unpack packet request (sendId=$sendId)", e)
+                    WeLogger.e(TAG, "failed to send receive request (sendId=$sendId)", e)
                 }
-            }.start()
-
+            }
         } catch (e: Throwable) {
             WeLogger.e(TAG, "failed to parse red packet data", e)
-        }
-    }
-
-    private fun hookReceiveCallback() {
-        methodOnGYNetEnd.hookAfter {
-            val json = args[2] as? JSONObject ?: return@hookAfter
-            val sendId = json.optString("sendId")
-            val timingIdentifier = json.optString("timingIdentifier")
-
-            if (timingIdentifier.isNullOrEmpty() || sendId.isNullOrEmpty()) return@hookAfter
-
-            val info = currentRedPacketMap[sendId] ?: return@hookAfter
-            WeLogger.i(
-                TAG,
-                "unpack request finished, sending open packet request ($sendId)"
-            )
-
-            Thread {
-                try {
-                    val openReq = XposedHelpers.newInstance(
-                        classOpenLuckyMoney.clazz,
-                        info.msgType, info.channelId, info.sendId, info.nativeUrl,
-                        info.headImg, info.nickName, info.talker,
-                        "v1.0", timingIdentifier, ""
-                    )
-                    WeNetworkApi.sendRequest(openReq)
-                    // we don't remove packet from map here for use in hookOpenReqEndCallback
-                } catch (e: Throwable) {
-                    WeLogger.e(TAG, "failed to open packet", e)
-                    currentRedPacketMap.remove(sendId)
-                }
-            }.start()
-        }
-    }
-
-    private fun hookOpenReqEndCallback() {
-        methodOnOpenGYNetEnd.hookAfter {
-            val notifEnabled = WePrefs.getBoolOrFalse("red_packet_notification")
-            if (!notifEnabled) return@hookAfter
-
-            val json = args[2] as? JSONObject ?: return@hookAfter
-            val sendId = json.optString("sendId")
-            if (sendId.isNullOrEmpty()) return@hookAfter
-
-            val info = currentRedPacketMap.remove(sendId) ?: return@hookAfter
-
-            val retcode = json.optInt("retcode", -1)
-            if (retcode != 0) {
-                WeLogger.w(TAG, "failed to grab packet; retcode=$retcode, sendId=$sendId")
-                return@hookAfter
-            }
-
-            val amount = json.optInt("recAmount", 0)
-            if (amount <= 0) {
-                return@hookAfter
-            }
-
-            val displayAmount = amount / 100.0
-            val displayName = WeDatabaseApi.getDisplayName(info.talker)
-            val isGroup = info.talker.endsWith("@chatroom")
-            val sourceLabel = if (isGroup) "群组" else "私聊"
-            showToast("抢到来自${sourceLabel}中来自 '${displayName}' 的红包 ¥${displayAmount}")
         }
     }
 
@@ -234,10 +248,8 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
     }
 
     override fun onDisable() {
-        WeLogger.i(TAG, "unload() called, removing db listener")
         WeDatabaseListenerApi.removeListener(this)
         currentRedPacketMap.clear()
-        WeLogger.i(TAG, "removed db listener and cleared red packet map")
     }
 
     override fun onClick(context: Context) {
@@ -245,12 +257,42 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
             var notification by remember { mutableStateOf(WePrefs.getBoolOrFalse("red_packet_notification")) }
             var self by remember { mutableStateOf(WePrefs.getBoolOrFalse("red_packet_self")) }
             var delayInput by remember { mutableStateOf(WePrefs.getStringOrDef("red_packet_delay_custom", "500")) }
-            var useRandomDelay by remember { mutableStateOf(WePrefs.getBoolOrFalse("red_packet_delay_random")) }
+            var useWhitelist by remember { mutableStateOf(WePrefs.getBoolOrFalse("red_packet_use_whitelist")) }
+            var randomRangeInput by remember { mutableStateOf(WePrefs.getStringOrDef("red_packet_delay_random_range", "300")) }
+            var autoReplyInput by remember { mutableStateOf(WePrefs.getStringOrDef("red_packet_auto_reply", "")) }
 
             AlertDialogContent(
                 title = { Text("自动抢红包") },
                 text = {
                     DefaultColumn {
+                        ListItem(
+                            headlineContent = { Text(if (useWhitelist) "黑名单 [> 白名单]" else "[> 黑名单] 白名单") },
+                            supportingContent = { Text(if (useWhitelist) "仅对选中联系人抢红包" else "对选中联系人跳过抢红包") },
+                            trailingContent = { Switch(checked = useWhitelist, onCheckedChange = { useWhitelist = it }) },
+                            modifier = Modifier.clickable { useWhitelist = !useWhitelist }
+                        )
+                        ListItem(
+                            headlineContent = { Text(if (useWhitelist) "配置白名单" else "配置黑名单") },
+                            supportingContent = { Text("点击选择联系人") },
+                            modifier = Modifier.clickable {
+                                val regularContacts = WeDatabaseApi.getFriends() + WeDatabaseApi.getGroups()
+                                val listKey = if (useWhitelist) "red_packet_whitelist" else "red_packet_blacklist"
+                                val currentList = WePrefs.getStringSetOrDef(listKey, emptySet())
+
+                                showComposeDialog(context) {
+                                    ContactsSelectionDialog(
+                                        title = if (useWhitelist) "选择白名单" else "选择黑名单",
+                                        contacts = regularContacts,
+                                        initialSelectedWxIds = currentList,
+                                        onDismiss = onDismiss
+                                    ) {
+                                        WePrefs.putStringSet(listKey, it)
+                                        showToast("已保存 ${it.size} 个联系人, 重启微信以使更改生效")
+                                        onDismiss()
+                                    }
+                                }
+                            }
+                        )
                         ListItem(
                             headlineContent = { Text("抢到后通知") },
                             supportingContent = { Text("使用 Toast 显示抢到的金额") },
@@ -270,11 +312,21 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                         )
-                        ListItem(
-                            headlineContent = { Text("随机延时") },
-                            supportingContent = { Text("在基础延迟上增加 ±300ms 随机偏移, 防止风控") },
-                            trailingContent = { Switch(checked = useRandomDelay, onCheckedChange = { useRandomDelay = it }) },
-                            modifier = Modifier.clickable { useRandomDelay = !useRandomDelay }
+                        TextField(
+                            value = randomRangeInput,
+                            onValueChange = { randomRangeInput = it.filter { c -> c.isDigit() }.take(5) },
+                            label = { Text("随机偏移范围 (±毫秒)") },
+                            supportingText = { Text("在基础延迟上增加随机偏移, 防止风控, 设 0 固定使用基础延迟") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                        )
+                        // TODO: refactor this to use js scripting
+                        TextField(
+                            value = autoReplyInput,
+                            onValueChange = { autoReplyInput = it.trim() },
+                            label = { Text("抢到后自动回复") },
+                            supportingText = { Text($$"成功抢到红包后向来源对话发送自定义消息, 留空禁用\n(使用占位符 $amount 表示金额)") },
+                            singleLine = true,
                         )
                     }
                 },
@@ -282,12 +334,14 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
                     Button(onClick = {
                         WePrefs.putBool("red_packet_notification", notification)
                         WePrefs.putBool("red_packet_self", self)
-                        WePrefs.putBool("red_packet_delay_random", useRandomDelay)
-                        WePrefs.putString("red_packet_delay_custom", delayInput.ifBlank { "500" })
+                        WePrefs.putString("red_packet_delay_custom", delayInput.ifBlank { "300" })
+                        WePrefs.putBool("red_packet_use_whitelist", useWhitelist)
+                        WePrefs.putString("red_packet_delay_random_range", randomRangeInput.ifBlank { "300" })
+                        WePrefs.putString("red_packet_auto_reply", autoReplyInput)
                         onDismiss()
                     }) { Text("确定") }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+                dismissButton = { TextButton(onDismiss) { Text("取消") } }
             )
         }
     }
@@ -315,15 +369,15 @@ object AutoOpenRedPackets : ClickableHookItem(), WeDatabaseListenerApi.IInsertLi
             }
         }
 
-        methodOnGYNetEnd.find(dexKit) {
+        methodOpenOnGYNetEnd.find(dexKit) {
             matcher {
-                declaredClass = classReceiveLuckyMoney.getDescriptorString()!!
+                declaredClass = classOpenLuckyMoney.getDescriptorString()!!
                 name = "onGYNetEnd"
                 paramCount = 3
             }
         }
 
-        methodOnOpenGYNetEnd.find(dexKit) {
+        methodReceiveOnGYNetEnd.find(dexKit) {
             matcher {
                 declaredClass = classReceiveLuckyMoney.getDescriptorString()!!
                 name = "onGYNetEnd"

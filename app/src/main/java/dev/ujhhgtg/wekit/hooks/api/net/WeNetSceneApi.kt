@@ -8,7 +8,7 @@ import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
 import org.luckypray.dexkit.DexKitBridge
 
-@HookItem(path = "API/NetScene API", description = "提供 NetScene 管理能力")
+@HookItem(path = "API/NetScene API", description = "提供 NetScene 发送能力")
 object WeNetSceneApi : ApiHookItem(), IResolvesDex {
 
     fun addNetSceneToQueue(netScene: Any) {

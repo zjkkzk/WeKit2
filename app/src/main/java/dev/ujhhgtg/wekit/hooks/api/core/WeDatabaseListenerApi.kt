@@ -6,7 +6,7 @@ import com.highcapable.kavaref.extension.VariousClass
 import com.tencent.wcdb.database.SQLiteDatabase
 import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.constants.PreferenceKeys
-import dev.ujhhgtg.wekit.constants.WeChatVersion
+import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.hooks.core.ApiHookItem
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -164,8 +164,8 @@ object WeDatabaseListenerApi : ApiHookItem() {
     private fun hookDatabaseQuery() {
         val isPlay = HostInfo.isHostGooglePlay
         val version = HostInfo.versionCode
-        val isNewVersion = (!isPlay && version >= WeChatVersion.MM_8_0_43) ||
-                (isPlay && version >= WeChatVersion.MM_8_0_48_PLAY)
+        val isNewVersion = (!isPlay && version >= WeChatVersions.MM_8_0_43) ||
+                (isPlay && version >= WeChatVersions.MM_8_0_48_PLAY)
 
         if (isNewVersion) {
             hookNewQueryMethod()

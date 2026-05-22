@@ -1,10 +1,9 @@
 # App
--keep interface dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex { *; }
--keep class * implements dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
+-keepnames class * implements dev.ujhhgtg.wekit.dexkit.abc.IResolvesDex
 
 # Attributes
 -keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault,LineNumberTable,SourceFile,*Annotation*
--keep class kotlin.Metadata
+-keep class kotlin.Metadata { *; }
 
 # Natives
 -keepclasseswithmembernames class * {

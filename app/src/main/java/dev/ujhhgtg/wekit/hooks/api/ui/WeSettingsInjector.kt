@@ -34,9 +34,26 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.fs.createDirectoriesNoThrow
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
+import dev.ujhhgtg.wekit.utils.reflection.BBool
+import dev.ujhhgtg.wekit.utils.reflection.BByte
+import dev.ujhhgtg.wekit.utils.reflection.BChar
+import dev.ujhhgtg.wekit.utils.reflection.BDouble
+import dev.ujhhgtg.wekit.utils.reflection.BFloat
+import dev.ujhhgtg.wekit.utils.reflection.BInt
+import dev.ujhhgtg.wekit.utils.reflection.BLong
+import dev.ujhhgtg.wekit.utils.reflection.BShort
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
+import dev.ujhhgtg.wekit.utils.reflection.bool
+import dev.ujhhgtg.wekit.utils.reflection.byte
+import dev.ujhhgtg.wekit.utils.reflection.char
+import dev.ujhhgtg.wekit.utils.reflection.double
+import dev.ujhhgtg.wekit.utils.reflection.float
+import dev.ujhhgtg.wekit.utils.reflection.int
+import dev.ujhhgtg.wekit.utils.reflection.isAbstract
+import dev.ujhhgtg.wekit.utils.reflection.long
 import dev.ujhhgtg.wekit.utils.reflection.resolve
+import dev.ujhhgtg.wekit.utils.reflection.short
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.StringMatchType
 import java.lang.reflect.InvocationHandler
@@ -300,6 +317,24 @@ object WeSettingsInjector : ApiHookItem(), IResolvesDex {
                     )
 
                     mGetNameResId -> WEKIT_SETTING_ITEM_NAME_RES_ID
+                    else if method.isAbstract -> {
+                        when (method.returnType) {
+                            bool, BBool -> false
+                            byte, BByte -> 0.toByte()
+                            short, BShort -> 0.toShort()
+                            int, BInt -> 0
+                            long, BLong -> 0L
+                            float, BFloat -> 0.0f
+                            double, BDouble -> 0.0
+                            char, BChar -> '\u0000'
+                            else -> ProxyBuilder.callSuper(
+                                proxy,
+                                method,
+                                *args
+                            )
+                        }
+                    }
+
                     else -> ProxyBuilder.callSuper(
                         proxy,
                         method,

@@ -60,6 +60,7 @@ class DexClassDelegate internal constructor(
         cachedClass = null
     }
 
+    @Suppress("unused")
     fun setDescriptor(c: ClassData) {
         setDescriptor(c.name)
     }
@@ -175,7 +176,13 @@ class DexMethodDelegate internal constructor(
             return false
         }
         if (results.size > 1 && !allowMultiple)
-            error("DexKit: Multiple methods found for key: $key, count: ${results.size}")
+            error(
+                "DexKit: Multiple methods found for key: $key, count: ${results.size}, methods:${
+                    results.map {
+                        "${it.className}::${it.methodName}"
+                    }
+                }"
+            )
 
         val m = results[resultIndex]
         setDescriptor(DexMethodDescriptor(m.className, m.methodName, m.methodSign))
@@ -216,6 +223,7 @@ class DexConstructorDelegate internal constructor(
         cachedConstructor = null
     }
 
+    @Suppress("unused")
     fun setDescriptor(className: String, methodSign: String) =
         setDescriptor(DexMethodDescriptor(className, "<init>", methodSign))
 
@@ -263,37 +271,31 @@ class DexConstructorDelegate internal constructor(
 
 /**
  * 创建 dexConstructor 委托，并将其注册到所属 HookItem 的委托列表中。
- * Key 格式："类名:变量名"
  */
-fun dexConstructor(): PropertyDelegateProvider<BaseHookItem?, ReadOnlyProperty<BaseHookItem?, DexConstructorDelegate>> =
+fun dexConstructor(): PropertyDelegateProvider<BaseHookItem, ReadOnlyProperty<BaseHookItem, DexConstructorDelegate>> =
     PropertyDelegateProvider { thisRef, property ->
-        val key = "${thisRef!!::class.java.simpleName}:${property.name}"
+        val key = "${thisRef::class.simpleName}:${property.name}"
         DexConstructorDelegate(key).also { thisRef.registerDexDelegate(it) }
     }
 
 /**
  * 创建 dexClass 委托，并将其注册到所属 HookItem 的委托列表中。
- * Key 格式："类名:变量名"
  */
-fun dexClass(): PropertyDelegateProvider<BaseHookItem?, ReadOnlyProperty<BaseHookItem?, DexClassDelegate>> =
+fun dexClass(): PropertyDelegateProvider<BaseHookItem, ReadOnlyProperty<BaseHookItem, DexClassDelegate>> =
     PropertyDelegateProvider { thisRef, property ->
-        val key = "${thisRef!!::class.java.simpleName}:${property.name}"
+        val key = "${thisRef::class.simpleName}:${property.name}"
         DexClassDelegate(key).also { thisRef.registerDexDelegate(it) }
     }
 
 /**
  * 创建 dexMethod 委托，并将其注册到所属 HookItem 的委托列表中。
- * Key 格式："类名:变量名"
  */
-fun dexMethod(): PropertyDelegateProvider<BaseHookItem?, ReadOnlyProperty<BaseHookItem?, DexMethodDelegate>> =
+fun dexMethod(): PropertyDelegateProvider<BaseHookItem, ReadOnlyProperty<BaseHookItem, DexMethodDelegate>> =
     PropertyDelegateProvider { thisRef, property ->
-        val key = "${thisRef!!::class.java.simpleName}:${property.name}"
+        val key = "${thisRef::class.simpleName}:${property.name}"
         DexMethodDelegate(key).also { thisRef.registerDexDelegate(it) }
     }
 
-// ---------------------------------------------------------------------------
-// DexKitBridge 扩展
-// ---------------------------------------------------------------------------
-
-fun DexKitBridge.findClassData(clazz: String): ClassData? =
+@Suppress("NOTHING_TO_INLINE")
+inline fun DexKitBridge.findClassData(clazz: String): ClassData? =
     findClass { matcher { className = clazz } }.singleOrNull()
