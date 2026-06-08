@@ -24,7 +24,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 object WeContactPrefsScreenApi : ApiHookItem() {
 
     interface IContactInfoProvider {
-        fun getContactInfoItem(activity: Activity): ContactInfoItem
+        fun getContactInfoItem(activity: Activity): List<ContactInfoItem>
         fun onItemClick(activity: Activity, key: String): Boolean
     }
 
@@ -68,12 +68,14 @@ object WeContactPrefsScreenApi : ApiHookItem() {
                         val adapterInstance = adapterField.get(thisObject as Activity)
                         for (provider in providers) {
                             try {
-                                val item = provider.getContactInfoItem(thisObject as Activity)
-                                val pref = prefConstructor.newInstance(thisObject as Context)
-                                setKeyMethod.invoke(pref, item.key)
-                                setTitleMethod.invoke(pref, item.title)
-                                item.summary?.let { summary -> setSummaryMethod.invoke(pref, summary) }
-                                addPreferenceMethod.invoke(adapterInstance, pref, item.position)
+                                val items = provider.getContactInfoItem(thisObject as Activity)
+                                for (item in items) {
+                                    val pref = prefConstructor.newInstance(thisObject as Context)
+                                    setKeyMethod.invoke(pref, item.key)
+                                    setTitleMethod.invoke(pref, item.title)
+                                    item.summary?.let { summary -> setSummaryMethod.invoke(pref, summary) }
+                                    addPreferenceMethod.invoke(adapterInstance, pref, item.position)
+                                }
                             } catch (ex: Exception) {
                                 WeLogger.e(
                                     TAG,

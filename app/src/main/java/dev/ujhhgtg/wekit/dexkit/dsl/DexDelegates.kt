@@ -27,6 +27,8 @@ sealed interface BaseDexDelegate {
     fun getDescriptorString(): String?
     /** 从缓存字符串恢复状态 */
     fun loadDescriptor(value: String)
+    /** 执行内联查找（如果是内联声明的话） */
+    fun findInline(dexKit: DexKitBridge): Boolean = true
 }
 
 // ---------------------------------------------------------------------------
@@ -37,7 +39,8 @@ sealed interface BaseDexDelegate {
  * Dex 类委托 — 自动生成 Key，自动反射获取 Class。
  */
 class DexClassDelegate internal constructor(
-    override val key: String
+    override val key: String,
+    private val inlineBlock: ((DexClassDelegate, DexKitBridge) -> Boolean)? = null
 ) : ReadOnlyProperty<BaseHookItem, DexClassDelegate>, BaseDexDelegate {
 
     private var descriptorString: String? = null
@@ -102,6 +105,10 @@ class DexClassDelegate internal constructor(
     fun getClassData(dexKit: DexKitBridge): ClassData =
         dexKit.findClassData(getDescriptorString()!!)!!
 
+    override fun findInline(dexKit: DexKitBridge): Boolean {
+        return inlineBlock?.invoke(this, dexKit) ?: true
+    }
+
     override fun getValue(thisRef: BaseHookItem, property: KProperty<*>): DexClassDelegate = this
 }
 
@@ -113,7 +120,8 @@ class DexClassDelegate internal constructor(
  * Dex 方法委托 — 自动生成 Key，自动反射获取 Method。
  */
 class DexMethodDelegate internal constructor(
-    override val key: String
+    override val key: String,
+    private val inlineBlock: ((DexMethodDelegate, DexKitBridge) -> Boolean)? = null
 ) : ReadOnlyProperty<BaseHookItem, DexMethodDelegate>, BaseDexDelegate {
 
     private var descriptor: DexMethodDescriptor? = null
@@ -189,6 +197,10 @@ class DexMethodDelegate internal constructor(
         return true
     }
 
+    override fun findInline(dexKit: DexKitBridge): Boolean {
+        return inlineBlock?.invoke(this, dexKit) ?: true
+    }
+
     override fun getValue(thisRef: BaseHookItem, property: KProperty<*>): DexMethodDelegate = this
 }
 
@@ -200,7 +212,8 @@ class DexMethodDelegate internal constructor(
  * Dex 构造函数委托 — 自动生成 Key，自动反射获取 Constructor。
  */
 class DexConstructorDelegate internal constructor(
-    override val key: String
+    override val key: String,
+    private val inlineBlock: ((DexConstructorDelegate, DexKitBridge) -> Boolean)? = null
 ) : ReadOnlyProperty<BaseHookItem, DexConstructorDelegate>, BaseDexDelegate {
 
     private var descriptor: DexMethodDescriptor? = null
@@ -267,6 +280,10 @@ class DexConstructorDelegate internal constructor(
         return true
     }
 
+    override fun findInline(dexKit: DexKitBridge): Boolean {
+        return inlineBlock?.invoke(this, dexKit) ?: true
+    }
+
     override fun getValue(thisRef: BaseHookItem, property: KProperty<*>): DexConstructorDelegate = this
 }
 
@@ -304,3 +321,54 @@ fun dexMethod(): PropertyDelegateProvider<BaseHookItem, ReadOnlyProperty<BaseHoo
 @Suppress("NOTHING_TO_INLINE")
 inline fun DexKitBridge.findClassData(clazz: String): ClassData? =
     findClass { matcher { className = clazz } }.singleOrNull()
+
+// ---------------------------------------------------------------------------
+// 内联查找委托工厂函数
+// ---------------------------------------------------------------------------
+
+/**
+ * 创建带有内联查找逻辑的 dexConstructor 委托
+ */
+fun dexConstructor(
+    allowMultiple: Boolean = false,
+    throwOnFailure: Boolean = true,
+    resultIndex: Int = 0,
+    block: FindMethod.() -> Unit
+): PropertyDelegateProvider<BaseHookItem, ReadOnlyProperty<BaseHookItem, DexConstructorDelegate>> =
+    PropertyDelegateProvider { item, property ->
+        val key = "${item::class.simpleName}:${property.name}"
+        DexConstructorDelegate(key) { delegate, dexKit ->
+            delegate.find(dexKit, allowMultiple, throwOnFailure, resultIndex, block)
+        }.also { item.registerDexDelegate(it) }
+    }
+
+/**
+ * 创建带有内联查找逻辑的 dexClass 委托
+ */
+fun dexClass(
+    allowMultiple: Boolean = false,
+    allowFailure: Boolean = false,
+    block: FindClass.() -> Unit
+): PropertyDelegateProvider<BaseHookItem, ReadOnlyProperty<BaseHookItem, DexClassDelegate>> =
+    PropertyDelegateProvider { item, property ->
+        val key = "${item::class.simpleName}:${property.name}"
+        DexClassDelegate(key) { delegate, dexKit ->
+            delegate.find(dexKit, allowMultiple, allowFailure, block)
+        }.also { item.registerDexDelegate(it) }
+    }
+
+/**
+ * 创建带有内联查找逻辑的 dexMethod 委托
+ */
+fun dexMethod(
+    allowMultiple: Boolean = false,
+    allowFailure: Boolean = false,
+    resultIndex: Int = 0,
+    block: FindMethod.() -> Unit
+): PropertyDelegateProvider<BaseHookItem, ReadOnlyProperty<BaseHookItem, DexMethodDelegate>> =
+    PropertyDelegateProvider { item, property ->
+        val key = "${item::class.simpleName}:${property.name}"
+        DexMethodDelegate(key) { delegate, dexKit ->
+            delegate.find(dexKit, allowMultiple, allowFailure, resultIndex, block)
+        }.also { item.registerDexDelegate(it) }
+    }

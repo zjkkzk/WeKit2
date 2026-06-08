@@ -7,16 +7,7 @@ import dev.ujhhgtg.wekit.utils.android.Intent
 
 object WeApi {
 
-    private var _selfWxId: String = ""
-    val selfWxId: String
-        get() {
-            if (_selfWxId.isEmpty()) {
-                val result = RuntimeConfig.loggedInWxId
-                if (result.isNotEmpty()) _selfWxId = result
-                return result
-            }
-            return _selfWxId
-        }
+    val selfWxId get() = RuntimeConfig.loggedInWxId
 
     private var _selfCustomWxId: String = ""
     val selfCustomWxId: String

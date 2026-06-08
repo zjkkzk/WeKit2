@@ -31,3 +31,12 @@ fun getTopMostActivity(allowPaused: Boolean = false): Activity? = runCatching {
     WeLogger.e(nameOf(::getTopMostActivity), "failed to get topmost activity", it)
     null
 }
+
+val Activity.currentWxId: String?
+    get() {
+        return intent.getStringExtra("Contact_User")
+            ?: intent.getStringExtra("RoomInfo_Id")
+            ?: intent.getStringExtra("room_name")
+            ?: intent.getStringExtra("Contact_ChatRoomId")
+            ?: intent.getStringExtra("Chat_User")
+    }

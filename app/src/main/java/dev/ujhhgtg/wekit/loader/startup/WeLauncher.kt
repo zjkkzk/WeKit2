@@ -1,9 +1,7 @@
 package dev.ujhhgtg.wekit.loader.startup
 
-import android.app.Activity
 import android.content.Context
 import android.content.res.Resources
-import android.os.Bundle
 import com.tencent.mm.ui.LauncherUI
 import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.PackageNames
@@ -15,7 +13,6 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
-import dev.ujhhgtg.wekit.utils.hookAfterDirectly
 import dev.ujhhgtg.wekit.utils.hookBeforeDirectly
 import dev.ujhhgtg.wekit.utils.invokeOriginal
 import dev.ujhhgtg.wekit.utils.reflection.int
@@ -33,6 +30,10 @@ object WeLauncher {
         if (TargetProcesses.isInMain) {
             val appContext = context.applicationContext ?: context
             ActivityProxy.init(appContext)
+
+            val prefs =
+                context.getSharedPreferences("${PackageNames.WECHAT}_preferences", Context.MODE_PRIVATE)
+            RuntimeConfig.mmPrefs = prefs
 
             initMainProcessHooks()
         }
@@ -65,16 +66,6 @@ object WeLauncher {
 //                    }
 //                }
 //            }
-
-            firstMethod {
-                name = "onCreate"
-                parameters(Bundle::class)
-            }.hookAfterDirectly {
-                val activity = thisObject as Activity
-                val sharedPreferences =
-                    activity.getSharedPreferences("${PackageNames.WECHAT}_preferences", 0)
-                RuntimeConfig.mmPrefs = sharedPreferences
-            }
         }
     }
 

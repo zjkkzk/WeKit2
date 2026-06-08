@@ -194,10 +194,11 @@ object WeDatabaseListenerApi : ApiHookItem() {
 
                     if (currentSql != sql) {
                         args[0] = currentSql
-                        WeLogger.d(
-                            TAG,
-                            "[rawQuery] SQL被修改: $sql -> $currentSql, stack=${WeLogger.getStackTraceString()}"
-                        )
+                        if (Preferences.verboseLog)
+                            WeLogger.d(
+                                TAG,
+                                "[rawQuery] SQL modified: $sql -> $currentSql, stack=${WeLogger.getStackTraceString()}"
+                            )
                     }
                 } catch (e: Throwable) {
                     WeLogger.e(TAG, "New version query dispatch failed", e)
@@ -228,10 +229,11 @@ object WeDatabaseListenerApi : ApiHookItem() {
 
                 if (currentSql != sql) {
                     args[1] = currentSql
-                    WeLogger.d(
-                        TAG,
-                        "[rawQueryWithFactory] SQL modified: $sql -> $currentSql, stack=${WeLogger.getStackTraceString()}"
-                    )
+                    if (Preferences.verboseLog)
+                        WeLogger.d(
+                            TAG,
+                            "[rawQueryWithFactory] SQL modified: $sql -> $currentSql, stack=${WeLogger.getStackTraceString()}"
+                        )
                 }
             } catch (e: Throwable) {
                 WeLogger.e(TAG, "Old version query dispatch failed", e)

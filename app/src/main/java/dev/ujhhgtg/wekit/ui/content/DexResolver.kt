@@ -108,7 +108,11 @@ fun DexResolver(
         val displayName = if (item is BaseHookItem) item.displayName else unreachable()
         return try {
             progressChannel.send(ScanProgress.Start(displayName))
+
             item.resolveDex(dexKit)
+
+            item.resolveInlineDex(dexKit)
+
             DexCacheManager.saveItemCache(item)
             progressChannel.send(ScanProgress.Complete(displayName))
             ScanResult.Success(displayName)

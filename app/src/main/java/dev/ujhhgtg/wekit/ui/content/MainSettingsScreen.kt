@@ -43,6 +43,7 @@ import dev.ujhhgtg.wekit.activity.StandardActivity
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.constants.Preferences
+import dev.ujhhgtg.wekit.hooks.items.debug.ResetDexCache
 import dev.ujhhgtg.wekit.hooks.items.easter_egg.AprilFools
 import dev.ujhhgtg.wekit.hooks.items.easter_egg.isAprilFools
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -152,6 +153,12 @@ class MainSettingsScreen : BasePrefsScreen(BuildConfig.TAG) {
             title = "禁用版本适配",
             summary = "开启后不会弹出 DEX 查找对话框，未适配功能将不会被加载",
             icon = MaterialSymbols.Outlined.Block
+        )
+        addPreference(
+            title = "重置适配信息",
+            summary = "清除全部 DEX 适配信息, 等待下次启动时重新适配",
+            icon = MaterialSymbols.Outlined.Build_circle,
+            onClick = { ResetDexCache.onClick(it) }
         )
 
         addCategory("配置")

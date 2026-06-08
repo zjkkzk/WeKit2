@@ -37,8 +37,8 @@ object AntiMomentsDelete : SwitchHookItem(), WeDatabaseListenerApi.IUpdateListen
     }
 
     private fun handleSnsRecord(values: ContentValues) {
-        val typeVal = (values.get("type") as? Int) ?: return
-        val sourceVal = (values.get("sourceType") as? Int) ?: return
+        val typeVal = values.get("type") as? Int ?: return
+        val sourceVal = values.get("sourceType") as? Int ?: return
 
         if (!MomentsContentType.allTypeIds.contains(typeVal)) return
         if (sourceVal != 0) return

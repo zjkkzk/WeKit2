@@ -1,4 +1,4 @@
-package dev.ujhhgtg.wekit.hooks.items.entertain
+package dev.ujhhgtg.wekit.hooks.items.contacts
 
 import android.content.Context
 import android.content.Intent
@@ -11,7 +11,7 @@ import dev.ujhhgtg.wekit.ui.content.SingleContactSelector
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 
-@HookItem(name = "分裂群组", categories = ["娱乐"], description = "让群聊一分为二")
+@HookItem(name = "分裂群组", categories = ["联系人与群组", "娱乐"], description = "让群聊一分为二; 在假群聊中发送的红包即为假红包")
 object SplitGroupChats : ClickableHookItem() {
 
     private val TAG = This.Class.simpleName

@@ -75,129 +75,128 @@ object ChatInputBarEnhancements : SwitchHookItem() {
         ChatFooter::class.resolve().apply {
             firstConstructor {
                 parameters(Context::class, AttributeSet::class, Int::class)
-            }
-                .hookAfter {
-                    val chatFooter = thisObject as ChatFooter
-                    val searchedView = chatFooter.findViewByChildIndexes<View>(0)!!
-                    val imgButtons = searchedView.findViewsWhich<ImageButton> { view ->
-                        view.javaClass.simpleName == "WeImageButton"
+            }.hookAfter {
+                val chatFooter = thisObject as ChatFooter
+                val searchedView = chatFooter.findViewByChildIndexes<View>(0)!!
+                val imgButtons = searchedView.findViewsWhich<ImageButton> { view ->
+                    view.javaClass.simpleName == "WeImageButton"
+                }
+                val voiceButton = imgButtons.first()
+                val menuButton = imgButtons.last()
+                val sendButton = searchedView.findViewWhich<AndroidButton> { view ->
+                    view.javaClass.name == "android.widget.Button" && run {
+                        val text = (view as AndroidButton).text?.toString()?.trim() ?: ""
+                        text == "发送" || text.equals("send", ignoreCase = true)
                     }
-                    val voiceButton = imgButtons.first()
-                    val menuButton = imgButtons.last()
-                    val sendButton = searchedView.findViewWhich<AndroidButton> { view ->
-                        view.javaClass.name == "android.widget.Button" && run {
-                            val text = (view as AndroidButton).text?.toString()?.trim() ?: ""
-                            text == "发送" || text.equals("send", ignoreCase = true)
-                        }
-                    }!!
+                }!!
 
-                    voiceButton.setOnLongClickListener { view ->
-                        selectAndSendVoice(view.context, currentConv)
-                        return@setOnLongClickListener true
-                    }
+                voiceButton.setOnLongClickListener { view ->
+                    selectAndSendVoice(view.context, currentConv)
+                    return@setOnLongClickListener true
+                }
 
-                    listOf(menuButton, sendButton).forEach {
-                        it.setOnLongClickListener { view ->
-                            val context = view.context
+                listOf(menuButton, sendButton).forEach {
+                    it.setOnLongClickListener { view ->
+                        val context = view.context
 
-                            showComposeDialog(context) {
-                                AlertDialogContent(
-                                    title = { Text("聊天功能") },
-                                    text = {
-                                        Column {
-                                            ActionItem(
-                                                icon = MaterialSymbols.Outlined.Voice_chat,
-                                                label = "发送语音文件"
-                                            ) {
-                                                onDismiss()
-                                                selectAndSendVoice(context, currentConv)
+                        showComposeDialog(context) {
+                            AlertDialogContent(
+                                title = { Text("聊天功能") },
+                                text = {
+                                    Column {
+                                        ActionItem(
+                                            icon = MaterialSymbols.Outlined.Voice_chat,
+                                            label = "发送语音文件"
+                                        ) {
+                                            onDismiss()
+                                            selectAndSendVoice(context, currentConv)
+                                        }
+
+                                        ActionItem(
+                                            icon = MaterialSymbols.Outlined.Send_time_extension,
+                                            label = "发送卡片消息"
+                                        ) {
+                                            onDismiss()
+                                            val currentConv = currentConv
+                                            val content = chatFooter.lastText
+
+                                            if (content.isEmpty()) {
+                                                showToast("输入内容为空!")
+                                                return@ActionItem
                                             }
 
-                                            ActionItem(
-                                                icon = MaterialSymbols.Outlined.Send_time_extension,
-                                                label = "发送卡片消息"
-                                            ) {
-                                                onDismiss()
-                                                val currentConv = currentConv
-                                                val content = chatFooter.lastText
-
-                                                if (content.isEmpty()) {
-                                                    showToast("输入内容为空!")
-                                                    return@ActionItem
-                                                }
-
-                                                val isSuccess = WeMessageApi.sendXmlAppMsg(currentConv, content)
-                                                if (!isSuccess) {
-                                                    showToast("发送卡片消息失败, 请检查格式")
-                                                    return@ActionItem
-                                                }
-
-                                                chatFooter.findViewWhich<EditText> { view is EditText }?.setText("")
+                                            val isSuccess = WeMessageApi.sendXmlAppMsg(currentConv, content)
+                                            if (!isSuccess) {
+                                                showToast("发送卡片消息失败, 请检查格式")
+                                                return@ActionItem
                                             }
 
-                                            ActionItem(
-                                                icon = MaterialSymbols.Outlined.Alternate_email,
-                                                label = "@所有人"
-                                            ) {
-                                                onDismiss()
+                                            chatFooter.findViewWhich<EditText> { view is EditText }?.setText("")
+                                        }
 
-                                                if (!currentConv.endsWith("@chatroom")) {
-                                                    showToast("只能在群组里使用!")
-                                                    return@ActionItem
-                                                }
+                                        ActionItem(
+                                            icon = MaterialSymbols.Outlined.Alternate_email,
+                                            label = "@所有人"
+                                        ) {
+                                            onDismiss()
 
-                                                val contacts = WeDatabaseApi
-                                                    .getGroupMembers(currentConv)
-                                                    .filter { c -> c.wxId != WeApi.selfWxId }
-                                                val content = chatFooter.lastText
+                                            if (!currentConv.endsWith("@chatroom")) {
+                                                showToast("只能在群组里使用!")
+                                                return@ActionItem
+                                            }
 
-                                                val reqBody = buildJsonObject {
-                                                    put("1", 1)
-                                                    putJsonObject("2") {
-                                                        putJsonObject("1") {
-                                                            put("1", currentConv)
-                                                        }
-                                                        put("2", contacts.joinToString("") { c ->
-                                                            "@${c.nickname} "
-                                                        } + content)
-                                                        put("3", 1)
-                                                        put("4", System.currentTimeMillis() / 1000)
-                                                        put("5", -388413336)
-                                                        put(
-                                                            "6", """
-                                                                        <msgsource><atuserlist><![CDATA[${contacts.joinToString(",") { c -> c.wxId }}]]></atuserlist><pua>1</pua><alnode><cf>5</cf><inlenlist>73</inlenlist></alnode><eggIncluded>1</eggIncluded></msgsource>
-                                                                    """.trimIndent()
-                                                        )
+                                            val contacts = WeDatabaseApi
+                                                .getGroupMembers(currentConv)
+                                                .filter { c -> c.wxId != WeApi.selfWxId }
+                                            val content = chatFooter.lastText
+
+                                            val reqBody = buildJsonObject {
+                                                put("1", 1)
+                                                putJsonObject("2") {
+                                                    putJsonObject("1") {
+                                                        put("1", currentConv)
                                                     }
-                                                }
-
-                                                WePacketHelper.sendCgi(
-                                                    "/cgi-bin/micromsg-bin/newsendmsg",
-                                                    522,
-                                                    0,
-                                                    0,
-                                                    reqBody.toString()
-                                                ) {
-                                                    onSuccess { _, _ ->
-                                                        showToast("已发送! (自己无法看到该消息)")
-                                                    }
+                                                    put("2", contacts.joinToString("") { c ->
+                                                        "@${c.nickname} "
+                                                    } + content)
+                                                    put("3", 1)
+                                                    put("4", System.currentTimeMillis() / 1000)
+                                                    put("5", -388413336)
+                                                    put(
+                                                        "6", """
+                                                                    <msgsource><atuserlist><![CDATA[${contacts.joinToString(",") { c -> c.wxId }}]]></atuserlist><pua>1</pua><alnode><cf>5</cf><inlenlist>73</inlenlist></alnode><eggIncluded>1</eggIncluded></msgsource>
+                                                                """.trimIndent()
+                                                    )
                                                 }
                                             }
 
-                                            // TODO
+                                            WePacketHelper.sendCgi(
+                                                "/cgi-bin/micromsg-bin/newsendmsg",
+                                                522,
+                                                0,
+                                                0,
+                                                reqBody.toString()
+                                            ) {
+                                                onSuccess { _, _ ->
+                                                    showToast("已发送! (自己无法看到该消息)")
+                                                }
+                                            }
+                                        }
+
+                                        // TODO
 //                                            ActionItem(
 //                                                icon = MaterialSymbols.Outlined.Bomb,
 //                                                label = "发送闪退贴纸表情",
 //                                            ) {
 //
 //                                            }
-                                        }
-                                    })
-                            }
-                            return@setOnLongClickListener true
+                                    }
+                                })
                         }
+                        return@setOnLongClickListener true
                     }
                 }
+            }
 
             firstMethod {
                 name = "setUserName"

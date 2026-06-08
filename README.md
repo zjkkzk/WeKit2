@@ -145,7 +145,9 @@ adb shell cmd package compile -m speed-profile dev.ujhhgtg.wekit
 
 ## 注意
 
-一切开发旨在学习，请勿用于非法用途
+一切开发仅供学习, 请勿用于非法用途
+
+如有侵权, 请联系 `fxsecuremail@duck.com`
 
 使用本项目的源代码必须遵守 GPL-3.0 许可证，详见 LICENSE
 

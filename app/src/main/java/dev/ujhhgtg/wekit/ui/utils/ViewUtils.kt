@@ -8,74 +8,44 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ListAdapter
 
-fun <T : View> View.findViewByClassName(className: String): T? {
-    if (javaClass.name == className || javaClass.simpleName == className) {
-        @Suppress("UNCHECKED_CAST")
-        return this as T
-    }
-
-    if (this is ViewGroup) {
-        for (i in 0 until childCount) {
-            val result = getChildAt(i).findViewByClassName<T>(className)
-            if (result != null) return result
+/**
+ * Lazily traverses the View hierarchy using a Pre-order Depth-First Search (DFS).
+ * Uses an iterative stack to avoid the performance penalty of recursive yieldAll.
+ */
+val View.allViews: Sequence<View>
+    get() = sequence {
+        val stack = mutableListOf(this@allViews)
+        while (stack.isNotEmpty()) {
+            val current = stack.removeAt(stack.lastIndex)
+            yield(current)
+            if (current is ViewGroup) {
+                // Push children in reverse order to maintain standard left-to-right DFS
+                for (i in current.childCount - 1 downTo 0) {
+                    stack.add(current.getChildAt(i))
+                }
+            }
         }
     }
 
-    return null
+fun <T : View> View.findViewsByClassName(className: String): Sequence<T> {
+    return allViews
+        .filter { it.javaClass.name == className || it.javaClass.simpleName == className }
+        .map { @Suppress("UNCHECKED_CAST") (it as T) }
 }
 
-fun <T : View> View.findViewsByClassName(className: String): List<T> {
-    val results = mutableListOf<T>()
+fun <T : View> View.findViewByClassName(className: String): T? {
+    return findViewsByClassName<T>(className).firstOrNull()
+}
 
-    if (javaClass.name == className || javaClass.simpleName == className) {
-        @Suppress("UNCHECKED_CAST")
-        results.add(this as T)
-    }
-
-    if (this is ViewGroup) {
-        for (i in 0 until childCount) {
-            results.addAll(getChildAt(i).findViewsByClassName(className))
-        }
-    }
-
-    return results
+fun <T : View> View?.findViewsWhich(predicate: (View) -> Boolean): Sequence<T> {
+    if (this == null) return emptySequence()
+    return this.allViews
+        .filter(predicate)
+        .map { @Suppress("UNCHECKED_CAST") (it as T) }
 }
 
 fun <T : View> View?.findViewWhich(predicate: (View) -> Boolean): T? {
-    if (this == null) return null
-
-    if (predicate(this)) {
-        @Suppress("UNCHECKED_CAST")
-        return this as T
-    }
-
-    if (this is ViewGroup) {
-        for (i in 0 until childCount) {
-            val result = getChildAt(i).findViewWhich<T>(predicate)
-            if (result != null) return result
-        }
-    }
-
-    return null
-}
-
-fun <T : View> View?.findViewsWhich(predicate: (View) -> Boolean): List<T> {
-    val results = mutableListOf<T>()
-
-    if (this == null) return results
-
-    if (predicate(this)) {
-        @Suppress("UNCHECKED_CAST")
-        results.add(this as T)
-    }
-
-    if (this is ViewGroup) {
-        for (i in 0 until childCount) {
-            results.addAll(getChildAt(i).findViewsWhich(predicate))
-        }
-    }
-
-    return results
+    return findViewsWhich<T>(predicate).firstOrNull()
 }
 
 fun <T : View> View.findViewByChildIndexes(vararg indexes: Int): T? {

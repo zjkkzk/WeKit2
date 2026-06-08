@@ -33,11 +33,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Contacts
+import com.composables.icons.materialsymbols.outlined.Explore
+import com.composables.icons.materialsymbols.outlined.Home
+import com.composables.icons.materialsymbols.outlined.Person
 import com.composables.icons.materialsymbols.outlinedfilled.Contacts
 import com.composables.icons.materialsymbols.outlinedfilled.Explore
 import com.composables.icons.materialsymbols.outlinedfilled.Home
@@ -65,11 +70,17 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 @HookItem(name = "美化首页底部导航栏", categories = ["界面美化"], description = "将首页底部导航栏替换为 Material Design 或 Backdrop 风格")
 object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
 
+    private data class NavItem(
+        val outlined: ImageVector,
+        val filled: ImageVector,
+        val label: String
+    )
+
     private val ICONS = listOf(
-        MaterialSymbols.OutlinedFilled.Home to "主页",
-        MaterialSymbols.OutlinedFilled.Contacts to "联系人",
-        MaterialSymbols.OutlinedFilled.Explore to "发现",
-        MaterialSymbols.OutlinedFilled.Person to "我"
+        NavItem(MaterialSymbols.Outlined.Home, MaterialSymbols.OutlinedFilled.Home, "主页"),
+        NavItem(MaterialSymbols.Outlined.Contacts, MaterialSymbols.OutlinedFilled.Contacts, "联系人"),
+        NavItem(MaterialSymbols.Outlined.Explore, MaterialSymbols.OutlinedFilled.Explore, "发现"),
+        NavItem(MaterialSymbols.Outlined.Person, MaterialSymbols.OutlinedFilled.Person, "我")
     )
 
     private var useFloating by prefOption("nav_bar_use_floating", false)
@@ -131,8 +142,6 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                             var selectedIndex by selectedPageIndexState
                             val unreadCount by unreadCountState
 
-                            // TODO: we currently use a custom background color without accent to match with WeChat's overall style
-                            //       might change this when MonetEngine covers more UI
                             val backgroundColor = if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
                             val activeColor = MaterialTheme.colorScheme.primary
                             val inactiveColor = MaterialTheme.colorScheme.outline
@@ -145,7 +154,7 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                         .height(56.dp),
                                     containerColor = backgroundColor
                                 ) {
-                                    ICONS.forEachIndexed { index, (icon, label) ->
+                                    ICONS.forEachIndexed { index, item ->
                                         val isSelected = index == selectedIndex
                                         val isNext = index == selectedIndex + 1
 
@@ -165,6 +174,10 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                             else -> inactiveColor
                                         }
 
+                                        // Switches icon variant mid-swipe to match standard M3 spec
+                                        val showFilled = if (offset < 0.5f) isSelected else isNext
+                                        val currentIcon = if (showFilled) item.filled else item.outlined
+
                                         NavigationBarItem(
                                             selected = isSelected && offset < 0.5f,
                                             onClick = { navigateToTab(index) },
@@ -182,8 +195,8 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                                     }
                                                 ) {
                                                     Icon(
-                                                        imageVector = icon,
-                                                        contentDescription = label,
+                                                        imageVector = currentIcon,
+                                                        contentDescription = item.label,
                                                         tint = tint
                                                     )
                                                 }
@@ -223,6 +236,9 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                         isBlurEnabled = useBackdrop
                                     ) {
                                         ICONS.forEachIndexed { index, item ->
+                                            val isSelected = index == selectedIndex
+                                            val currentIcon = if (isSelected) item.filled else item.outlined
+
                                             FloatingBottomBarItem(
                                                 onClick = { navigateToTab(index) },
                                                 modifier = Modifier.defaultMinSize(minWidth = 76.dp)
@@ -240,12 +256,12 @@ object ReplaceNavigationBar : ClickableHookItem(), IResolvesDex {
                                                     }
                                                 ) {
                                                     Icon(
-                                                        imageVector = item.first,
-                                                        contentDescription = item.second
+                                                        imageVector = currentIcon,
+                                                        contentDescription = item.label
                                                     )
                                                 }
                                                 Text(
-                                                    text = item.second,
+                                                    text = item.label,
                                                     fontSize = 11.sp,
                                                     lineHeight = 14.sp,
                                                     maxLines = 1,

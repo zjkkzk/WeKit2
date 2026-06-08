@@ -13,9 +13,9 @@ import dev.ujhhgtg.wekit.hooks.api.core.models.MessageType
 import dev.ujhhgtg.wekit.hooks.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
+import dev.ujhhgtg.wekit.utils.RuntimeConfig
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
-import org.luckypray.dexkit.DexKitBridge
 
 @HookItem(name = "自动接收转账", categories = ["红包与支付"], description = "监听消息并自动接收转账")
 object AutoAcceptTransfers : SwitchHookItem(), IResolvesDex, WeDatabaseListenerApi.IInsertListener {
@@ -40,19 +40,19 @@ object AutoAcceptTransfers : SwitchHookItem(), IResolvesDex, WeDatabaseListenerA
         handleTransfer(values)
     }
 
-    private val RECEIVER_USERNAME_REGEX = Regex("""receiver_username.*?>\s*<!\[CDATA\[(.*?)]]>""")
+//    private val RECEIVER_USERNAME_REGEX = Regex("""receiver_username.*?>\s*<!\[CDATA\[(.*?)]]>""")
 
     private val PAY_SUBTYPE_REGEX = Regex("<paysubtype.*?(\\d+)</paysubtype>")
 
-    private fun parseReceiverFromXml(xml: String): String? {
-        return runCatching {
-            RECEIVER_USERNAME_REGEX
-                .find(xml)
-                ?.groupValues
-                ?.get(1)
-                ?.trim()
-        }.getOrDefault(null)
-    }
+//    private fun parseReceiverFromXml(xml: String): String? {
+//        return runCatching {
+//            RECEIVER_USERNAME_REGEX
+//                .find(xml)
+//                ?.groupValues
+//                ?.get(1)
+//                ?.trim()
+//        }.getOrDefault(null)
+//    }
 
     private fun parsePaySubtypeFromXml(xml: String): String? {
         return runCatching {
@@ -68,12 +68,18 @@ object AutoAcceptTransfers : SwitchHookItem(), IResolvesDex, WeDatabaseListenerA
         if (values.getAsInteger("isSend") == 1) return
 
         val content = values.getAsString("content") ?: return
-        val receiver = parseReceiverFromXml(content)
+//        val receiver = parseReceiverFromXml(content)
 
-        if (receiver != WeApi.selfWxId) {
-            WeLogger.w(TAG, "receiver is not self, ignoring")
-            return
-        }
+//        val mmPrefs = RuntimeConfig.mmPrefs
+//        val val1 = mmPrefs.getString("login_weixin_username", "")
+//        val val2 = mmPrefs.getString("login_user_name", "")
+//        WeLogger.d("RuntimeConfig", "val1=$val1, val2=$val2")
+//
+//        WeLogger.d(TAG, "receiver: $receiver, selfWxId: ${WeApi.selfWxId}")
+//        if (WeApi.selfWxId.isNotBlank() && receiver != WeApi.selfWxId) {
+//            WeLogger.w(TAG, "receiver is not self, ignoring")
+//            return
+//        }
 
         val subtype = parsePaySubtypeFromXml(content)
         if (subtype != "1") {
@@ -117,18 +123,14 @@ object AutoAcceptTransfers : SwitchHookItem(), IResolvesDex, WeDatabaseListenerA
         showToast("收到「${displayName}」的转账 ${transferMsg.feedesc}")
     }
 
-    private val ctorNetSceneTransferOperation by dexConstructor()
-
-    override fun resolveDex(dexKit: DexKitBridge) {
-        ctorNetSceneTransferOperation.find(dexKit) {
-            searchPackages("com.tencent.mm.plugin.remittance.model")
-            matcher {
-                declaredClass {
-                    usingEqStrings("Micromsg.NetSceneTenpayRemittanceConfirm", "/cgi-bin/mmpay-bin/transferoperation")
-                }
-
-                usingEqStrings("account click info , key is %s, value is %s")
+    private val ctorNetSceneTransferOperation by dexConstructor {
+        searchPackages("com.tencent.mm.plugin.remittance.model")
+        matcher {
+            declaredClass {
+                usingEqStrings("Micromsg.NetSceneTenpayRemittanceConfirm", "/cgi-bin/mmpay-bin/transferoperation")
             }
+
+            usingEqStrings("account click info , key is %s, value is %s")
         }
     }
 }

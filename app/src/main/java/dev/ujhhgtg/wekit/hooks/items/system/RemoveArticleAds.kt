@@ -1,6 +1,6 @@
 package dev.ujhhgtg.wekit.hooks.items.system
 
-import dev.ujhhgtg.comptime.nameOf
+import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.hooks.api.net.WePacketManager
 import dev.ujhhgtg.wekit.hooks.api.net.WeProtoData
 import dev.ujhhgtg.wekit.hooks.api.net.abc.IWePacketInterceptor
@@ -13,10 +13,14 @@ import org.json.JSONObject
 @HookItem(name = "去除文章广告", categories = ["系统与隐私"], description = "清除文章中的广告数据")
 object RemoveArticleAds : SwitchHookItem(), IWePacketInterceptor {
 
-    private val TAG = nameOf(RemoveArticleAds)
+    private val TAG = This.Class.simpleName
 
     override fun onEnable() {
         WePacketManager.addInterceptor(this)
+    }
+
+    override fun onDisable() {
+        WePacketManager.removeInterceptor(this)
     }
 
     override fun onResponse(uri: String, cgiId: Int, respBytes: ByteArray): ByteArray? {
@@ -74,7 +78,7 @@ object RemoveArticleAds : SwitchHookItem(), IWePacketInterceptor {
                 // 放回修改后的广告JSON
                 field2.put("3", adJson.toString())
                 data.applyViewJson(json, true)
-                WeLogger.d(TAG, "已清空所有广告相关数据")
+                WeLogger.d(TAG, "cleared article ads")
                 return data.toPacketBytes()
             }
 
@@ -83,9 +87,5 @@ object RemoveArticleAds : SwitchHookItem(), IWePacketInterceptor {
         }
 
         return null
-    }
-
-    override fun onDisable() {
-        WePacketManager.removeInterceptor(this)
     }
 }

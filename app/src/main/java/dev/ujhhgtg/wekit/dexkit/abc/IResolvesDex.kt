@@ -21,7 +21,7 @@ interface IResolvesDex {
      * 执行 DexKit 查找，将结果写入各委托自身。
      * 调用方通过 [collectDescriptors] 读取结果后持久化。
      */
-    fun resolveDex(dexKit: DexKitBridge)
+    fun resolveDex(dexKit: DexKitBridge) {}
 
     /**
      * 将所有委托的当前状态收集为 key → descriptor 字符串映射，

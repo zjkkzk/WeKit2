@@ -5,12 +5,13 @@ import com.highcapable.kavaref.resolver.MethodResolver
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import dev.ujhhgtg.comptime.nameOf
-import dev.ujhhgtg.wekit.dexkit.dsl.DexConstructorDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.BaseDexDelegate
+import dev.ujhhgtg.wekit.dexkit.dsl.DexConstructorDelegate
 import dev.ujhhgtg.wekit.dexkit.dsl.DexMethodDelegate
 import dev.ujhhgtg.wekit.utils.HookAction
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
+import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Executable
 import kotlin.reflect.KClass
 
@@ -66,6 +67,10 @@ abstract class BaseHookItem {
     val dexDelegates: List<BaseDexDelegate> get() = _dexDelegates
     internal fun registerDexDelegate(d: BaseDexDelegate) {
         _dexDelegates += d
+    }
+
+    internal fun resolveInlineDex(dexKit: DexKitBridge) {
+        dexDelegates.forEach { it.findInline(dexKit) }
     }
 
     internal val unhooks = mutableListOf<XC_MethodHook.Unhook>()
