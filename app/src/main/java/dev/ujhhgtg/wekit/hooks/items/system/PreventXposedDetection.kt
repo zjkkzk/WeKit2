@@ -14,7 +14,7 @@ import dev.ujhhgtg.wekit.utils.HostInfo
 @HookItem(name = "禁止微信检测 Xposed", categories = ["系统与隐私"], description = "防止微信检测 Xposed 框架是否存在")
 object PreventXposedDetection : SwitchHookItem(), IResolvesDex {
 
-    private val methodCheckStackTraceElements by dexMethod {
+    private val methodCheckStackTraceElements by dexMethod(allowFailure = true) {
         searchPackages("com.tencent.mm.app")
         matcher {
             usingEqStrings(

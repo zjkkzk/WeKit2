@@ -5,7 +5,6 @@ import android.os.Looper
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.text.style.RelativeSizeSpan
 import android.view.View
 import android.widget.TextView
 import androidx.core.view.isGone
@@ -15,7 +14,7 @@ import dev.ujhhgtg.wekit.hooks.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.hooks.api.ui.WeChatMessageViewApi
 import dev.ujhhgtg.wekit.hooks.core.HookItem
 import dev.ujhhgtg.wekit.hooks.core.SwitchHookItem
-import dev.ujhhgtg.wekit.hooks.items.chat.DisplayGroupMemberRealNames.cacheFile
+import dev.ujhhgtg.wekit.hooks.items.chat.DisplayGroupMemberRealNamesLastChar.cacheFile
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import dev.ujhhgtg.wekit.utils.reflection.asResolver
@@ -37,7 +36,7 @@ import kotlin.io.path.writeText
     categories = ["聊天"],
     description = "通过转账接口获取并显示群成员的实名尾字"
 )
-object DisplayGroupMemberRealNames : SwitchHookItem(), WeChatMessageViewApi.ICreateViewListener {
+object DisplayGroupMemberRealNamesLastChar : SwitchHookItem(), WeChatMessageViewApi.ICreateViewListener {
 
     private val TAG = This.Class.simpleName
 
@@ -183,11 +182,6 @@ object DisplayGroupMemberRealNames : SwitchHookItem(), WeChatMessageViewApi.ICre
 
         sb.setSpan(
             ForegroundColorSpan(0xFF9E9E9E.toInt()),
-            annotStart, annotEnd,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
-        sb.setSpan(
-            RelativeSizeSpan(0.9f),
             annotStart, annotEnd,
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
         )
