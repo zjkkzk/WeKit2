@@ -5,7 +5,6 @@ package dev.ujhhgtg.wekit.features.core
 import androidx.compose.runtime.Composable
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflected.BaseReflectedMethod
 import dev.ujhhgtg.reflekt.reflected.ReflectedConstructor
 import dev.ujhhgtg.reflekt.reflekt
@@ -32,33 +31,34 @@ abstract class BaseFeature {
         error("You shouldn't inherit BaseFeature")
     }
 
-    var hasEnabled: Boolean = false
+    /** Whether this feature's hooks are currently installed (runtime truth). */
+    var isActive: Boolean = false
         private set
 
     fun enable() {
-        if (hasEnabled) return
+        if (isActive) return
 
         runCatching {
-            hasEnabled = true
+            isActive = true
             onEnable()
         }.onFailure { e ->
             WeLogger.e(TAG, "failed to enable feature $displayName", e)
             // ensure transaction is fully discarded
             unhookAll()
-            hasEnabled = false
+            isActive = false
         }
     }
 
     fun disable() {
-        if (!hasEnabled) return
+        if (!isActive) return
 
         runCatching {
-            hasEnabled = false
+            isActive = false
             unhookAll()
             onDisable()
         }.onFailure { e ->
             WeLogger.e(TAG, "failed to disable feature $displayName", e)
-            hasEnabled = true
+            isActive = true
         }
     }
 
@@ -197,6 +197,6 @@ abstract class BaseFeature {
     }
 
     companion object {
-        private val TAG = nameOf(BaseFeature::class)
+        private const val TAG = "BaseFeature"
     }
 }

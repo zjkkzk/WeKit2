@@ -10,7 +10,6 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.DexClassDelegate
@@ -82,7 +81,7 @@ object SwipeToDeleteConversation : SwitchFeature(), IResolveDex {
 
     private val settleInterpolator = DecelerateInterpolator()
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "SwipeToDeleteConversation"
 
     // WeChat has TWO home conversation-list adapters and picks one at runtime in MainUI.onCreate
     // (o75.s.f347101a.b()): the legacy ListView adapter com.tencent.mm.ui.conversation.p3

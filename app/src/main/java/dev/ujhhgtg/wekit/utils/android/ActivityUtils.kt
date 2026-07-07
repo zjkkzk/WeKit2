@@ -7,7 +7,6 @@ import android.app.Activity
 import android.app.ActivityThread
 import android.os.IBinder
 import android.util.ArrayMap
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 
@@ -26,7 +25,7 @@ fun getTopMostActivity(allowPaused: Boolean = false): Activity? = runCatching {
         .mapNotNull { record -> activityField.get(record) as? Activity }
         .lastOrNull()
 }.getOrElse {
-    WeLogger.e(nameOf(::getTopMostActivity), "failed to get top-most activity", it)
+    WeLogger.e("getTopMostActivity", "failed to get top-most activity", it)
     null
 }
 

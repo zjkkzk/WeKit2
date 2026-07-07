@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.entertain
 
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ClearProfileListProto
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.ClearProfileOpProto
@@ -20,7 +19,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "清空资料信息", categories = ["娱乐"], description = "清空当前用户的地区与性别等资料信息")
 object ClearProfileDetails : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ClearProfileDetails"
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {

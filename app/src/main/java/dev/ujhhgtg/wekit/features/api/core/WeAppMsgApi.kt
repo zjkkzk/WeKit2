@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.core
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -15,7 +14,7 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
     private val methodParseXml by dexMethod()    // op0.q.u(String)
     private val methodSendAppMsg by dexMethod()  // k0.J(...)
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeAppMsgApi"
 
     override fun resolveDex(dexKit: DexKitBridge) {
         val classAppMsgContent = dexKit.findClass {

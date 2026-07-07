@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -59,7 +58,7 @@ import kotlin.io.path.div
 )
 object VirtualVoipVideo : ClickableFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "VirtualVoipVideo"
 
     private val VIDEO_PATH by lazy {
         KnownPaths.moduleData / "virtual_voip_video.mp4"

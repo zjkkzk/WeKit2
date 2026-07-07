@@ -63,7 +63,6 @@ import com.composables.icons.materialsymbols.outlinedfilled.Qr_code_scanner
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Update
 import com.composables.icons.materialsymbols.outlinedfilled.Wallet
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -89,7 +88,7 @@ import java.util.UUID
 @Feature(name = "主屏幕添加 FAB", categories = ["界面美化"], description = "向微信主屏幕添加浮动操作按钮")
 object AddMainScreenFab : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "AddMainScreenFab"
     private const val KEY_FAB_CONFIG = "fab_button_configs_json"
 
     @Serializable

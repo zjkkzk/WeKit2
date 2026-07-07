@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import android.view.View
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -152,5 +151,5 @@ object MonitorGroupMemberOperations : SwitchFeature(), IResolveDex, WeDatabaseLi
         }.getOrElse { emptyMap() }
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "MonitorGroupMemberOperations"
 }

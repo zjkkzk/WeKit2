@@ -1,25 +1,18 @@
 package dev.ujhhgtg.wekit.activity.settings
 
-import android.os.Build
 import android.os.Bundle
-import android.view.RoundedCorner
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
-import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.Keep
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -39,29 +32,22 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.materialsymbols.MaterialSymbols
@@ -91,7 +77,6 @@ import com.composables.icons.materialsymbols.outlinedfilled.Article
 import com.composables.icons.materialsymbols.outlinedfilled.Home
 import com.composables.icons.materialsymbols.outlinedfilled.Settings
 import com.composables.icons.materialsymbols.outlinedfilled.Tune
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.features.core.BaseFeature
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -99,6 +84,7 @@ import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBar
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarDefaults
 import dev.ujhhgtg.wekit.ui.content.FloatingBottomBarItem
+import dev.ujhhgtg.wekit.ui.content.MiuixStackNavigator
 import dev.ujhhgtg.wekit.ui.content.liquid.vibrancy
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
@@ -120,16 +106,10 @@ import top.yukonga.miuix.kmp.blur.drawBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.exp
-import kotlin.math.sin
-import kotlin.math.sqrt
 import androidx.compose.material3.Icon as M3Icon
 import androidx.compose.material3.Text as M3Text
 
@@ -188,256 +168,127 @@ val FEATURE_CATEGORIES = listOf(
 //  Root: three-tab pager + floating bottom bar, with category drill-down
 // ---------------------------------------------------------------------------
 
+/** Navigation targets for the Settings activity's stack. */
+private sealed interface SettingsNavTarget {
+    data object Main : SettingsNavTarget
+    data class Category(val name: String) : SettingsNavTarget
+    data object License : SettingsNavTarget
+}
+
 @Composable
 private fun SettingsRoot(onFinish: () -> Unit) {
-    var openedCategory by rememberSaveable { mutableStateOf<String?>(null) }
-    var showLicense by rememberSaveable { mutableStateOf(false) }
+    val stack = remember { mutableStateListOf<SettingsNavTarget>(SettingsNavTarget.Main) }
 
+    MiuixStackNavigator(stack = stack, onExitRoot = onFinish) { screen, push, pop ->
+        when (screen) {
+            SettingsNavTarget.Main      -> MainPagerScreen(
+                onOpenCategory = { push(SettingsNavTarget.Category(it)) },
+                onOpenLicense  = { push(SettingsNavTarget.License) },
+            )
+            is SettingsNavTarget.Category -> CategoryDetailScreen(
+                categoryName = screen.name,
+                onBack = pop,
+            )
+            SettingsNavTarget.License   -> LicenseScreen(
+                onBack = pop,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MainPagerScreen(
+    onOpenCategory: (String) -> Unit,
+    onOpenLicense: () -> Unit,
+) {
     val pagerState = rememberPagerState(pageCount = { 4 })
     val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
     val scope = rememberCoroutineScope()
     val backdrop = rememberLayerBackdrop()
-
     val barBottomPadding = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    // No overlay open: plain back finishes the activity.
-    BackHandler(enabled = openedCategory == null && !showLicense) { onFinish() }
-
-    val drillTarget: DrillTarget? = when {
-        openedCategory != null -> DrillTarget.Category(openedCategory!!)
-        showLicense -> DrillTarget.License
-        else -> null
-    }
-
-    MiuixDrillDownScaffold(
-        target = drillTarget,
-        onClose = {
-            openedCategory = null
-            showLicense = false
-        },
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MiuixTheme.colorScheme.background),
     ) {
-        // Background scene: the three-tab pager + floating bar. Parallaxed + dimmed by the
-        // scaffold while a drill-down is open.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MiuixTheme.colorScheme.background),
+                .layerBackdrop(backdrop),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .layerBackdrop(backdrop),
-            ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize(),
-                    key = { it },
-                ) { page ->
-                    when (page) {
-                        0 -> HomePager(onOpenFeatures = { scope.launch { pagerState.animateScrollToPage(1) } })
-                        1 -> FeaturesPager(onOpenCategory = { openedCategory = it })
-                        2 -> LogsPager()
-                        else -> SettingsPager(onOpenLicense = { showLicense = true })
-                    }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                key = { it },
+            ) { page ->
+                when (page) {
+                    0 -> HomePager(onOpenFeatures = { scope.launch { pagerState.animateScrollToPage(1) } })
+                    1 -> FeaturesPager(onOpenCategory = onOpenCategory)
+                    2 -> LogsPager()
+                    else -> SettingsPager(onOpenLicense = onOpenLicense)
                 }
             }
+        }
 
-            val haptic = LocalHapticFeedback.current
+        val haptic = LocalHapticFeedback.current
 
-            FloatingBottomBar(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {},
-                    )
-                    .padding(bottom = barBottomPadding),
-                selectedIndex = { pagerState.targetPage },
-                // Track the pager's fractional scroll 1:1 during a finger swipe; a tab *tap*
-                // (programmatic animateScrollToPage, isDragged == false) springs the pill across
-                // with the press/glass bulge instead of a flat translate.
-                progress = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
-                isTracking = { isDragged },
-                onSelected = { scope.launch { pagerState.animateScrollToPage(it) } },
-                backdrop = backdrop,
-                tabsCount = TAB_ITEMS.size,
-                isBlurEnabled = true,
-                colors = FloatingBottomBarDefaults.colors(
-                    containerColor = MiuixTheme.colorScheme.surfaceContainer,
-                    indicatorColor = MiuixTheme.colorScheme.primary,
-                    contentColor = MiuixTheme.colorScheme.onSurfaceSecondary,
-                    activeContentColor = MiuixTheme.colorScheme.primary,
-                ),
-            ) {
-                // Key the fill crossfade to targetPage (same driver as the pill), not
-                // settledPage — settledPage only updates when animateScrollToPage fully
-                // finishes, so the icon would fill a beat after the pill has arrived.
-                val target = pagerState.targetPage
-                TAB_ITEMS.forEachIndexed { index, item ->
-                    FloatingBottomBarItem(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                            scope.launch { pagerState.animateScrollToPage(index) }
-                        },
-                        modifier = Modifier.defaultMinSize(minWidth = 76.dp),
-                    ) {
-                        Crossfade(
-                            targetState = index == target,
-                            animationSpec = tween(200),
-                            label = "navIcon",
-                        ) { selected ->
-                            M3Icon(
-                                imageVector = if (selected) item.filled else item.outlined,
-                                contentDescription = item.label,
-                            )
-                        }
-                        M3Text(
-                            text = item.label,
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Visible
+        FloatingBottomBar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                )
+                .padding(bottom = barBottomPadding),
+            selectedIndex = { pagerState.targetPage },
+            // Track the pager's fractional scroll 1:1 during a finger swipe; a tab *tap*
+            // (programmatic animateScrollToPage, isDragged == false) springs the pill across
+            // with the press/glass bulge instead of a flat translate.
+            progress = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
+            isTracking = { isDragged },
+            onSelected = { scope.launch { pagerState.animateScrollToPage(it) } },
+            backdrop = backdrop,
+            tabsCount = TAB_ITEMS.size,
+            isBlurEnabled = true,
+            colors = FloatingBottomBarDefaults.colors(
+                containerColor = MiuixTheme.colorScheme.surfaceContainer,
+                indicatorColor = MiuixTheme.colorScheme.primary,
+                contentColor = MiuixTheme.colorScheme.onSurfaceSecondary,
+                activeContentColor = MiuixTheme.colorScheme.primary,
+            ),
+        ) {
+            // Key the fill crossfade to targetPage (same driver as the pill), not
+            // settledPage — settledPage only updates when animateScrollToPage fully
+            // finishes, so the icon would fill a beat after the pill has arrived.
+            val target = pagerState.targetPage
+            TAB_ITEMS.forEachIndexed { index, item ->
+                FloatingBottomBarItem(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        scope.launch { pagerState.animateScrollToPage(index) }
+                    },
+                    modifier = Modifier.defaultMinSize(minWidth = 76.dp),
+                ) {
+                    Crossfade(
+                        targetState = index == target,
+                        animationSpec = tween(200),
+                        label = "navIcon",
+                    ) { selected ->
+                        M3Icon(
+                            imageVector = if (selected) item.filled else item.outlined,
+                            contentDescription = item.label,
                         )
                     }
-                }
-            }
-        }
-    }
-}
-
-/**
- * The miuix navigation3 spring easing, ported verbatim from the miuix fork's
- * `NavTransitionEasing(response = 0.8, damping = 0.95)`. It's the analytic solution of an
- * under-damped spring expressed as an [Easing], which is what gives the Miuix predictive-back
- * transition its exact feel (vs. a plain tween or a stock Compose spring).
- */
-private val NavAnimationEasing: Easing = run {
-    val response = 0.8
-    val damping = 0.95
-    val omega = 2.0 * PI / response
-    val k = omega * omega
-    val c = damping * 4.0 * PI / response
-    val w = sqrt(4.0 * k - c * c) / 2.0
-    val r = -c / 2.0
-    val c2 = r / w
-    Easing { fraction ->
-        val t = fraction.toDouble()
-        val decay = exp(r * t)
-        (decay * (-cos(w * t) + c2 * sin(w * t)) + 1.0).toFloat()
-    }
-}
-
-/** Device hardware corner radius (API 31+), else a sane squircle fallback. */
-@Composable
-private fun deviceCornerRadiusDp(): Dp {
-    val view = LocalView.current
-    val density = LocalDensity.current
-    return remember(view) {
-        val px = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            view.rootWindowInsets
-                ?.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)
-                ?.radius ?: 0
-        } else {
-            0
-        }
-        if (px > 0) with(density) { px.toDp() } else 32.dp
-    }
-}
-
-/** Which drill-down screen is showing (mutually exclusive: category detail or license). */
-private sealed interface DrillTarget {
-    data class Category(val name: String) : DrillTarget
-    data object License : DrillTarget
-}
-
-/**
- * Faithful reproduction of miuix's navigation3 "Miuix" predictive-back transition. Unlike a
- * plain overlay slide, the *background scene* (pager + bar, in [background]) reacts too:
- *
- *  - top scene (the drill-down [DrillTarget]) slides its full width to the right on dismiss,
- *    squircle-corner-clipped at the device radius — no scale, no fade;
- *  - background scene parallaxes in from `-width/4` and is dimmed up to 50% black, both driven
- *    by the same gesture fraction;
- *  - committed open/close and gesture cancel settle on [NavAnimationEasing] (the miuix spring).
- *
- * `fraction` runs 0 (background fully covered by the top scene) → 1 (top scene fully dismissed).
- */
-@Composable
-private fun MiuixDrillDownScaffold(
-    target: DrillTarget?,
-    onClose: () -> Unit,
-    background: @Composable BoxScope.() -> Unit,
-) {
-    var last by remember { mutableStateOf(target) }
-    if (target != null) last = target
-
-    val visible = target != null
-    // 0f = top scene fully covers the background, 1f = fully dismissed to the right.
-    val fraction = remember { Animatable(if (visible) 0f else 1f) }
-
-    LaunchedEffect(visible) {
-        fraction.animateTo(if (visible) 0f else 1f, animationSpec = tween(500, easing = NavAnimationEasing))
-    }
-
-    // In-app predictive back: seek `fraction` 1:1 from the gesture, commit on finish, spring
-    // back to covered on cancel.
-    PredictiveBackHandler(enabled = visible) { events ->
-        try {
-            events.collect { event -> fraction.snapTo(event.progress) }
-            onClose()
-        } catch (e: CancellationException) {
-            fraction.animateTo(0f, animationSpec = tween(500, easing = NavAnimationEasing))
-            throw e
-        }
-    }
-
-    val cornerRadius = deviceCornerRadiusDp()
-    val dimColor = Color.Black
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        val p = fraction.value
-
-        // Background scene: parallax + dim. It stays put once fully covered (occluded anyway).
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer { translationX = -size.width * 0.25f * (1f - p) },
-        ) {
-            background()
-            if (p < 1f) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .graphicsLayer { alpha = 0.5f * (1f - p) }
-                        .background(dimColor),
-                )
-            }
-        }
-
-        // Top scene: full-width slide + squircle corner clip. Rendered while open and during the
-        // close animation (keeping the last value so content doesn't blank out mid-transition).
-        if (visible || p < 1f) {
-            val value = last
-            if (value != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { translationX = size.width * p }
-                        .squircleClip(cornerRadius)
-                        .background(MiuixTheme.colorScheme.background)
-                        // Swallow taps so the background isn't clickable through the overlay.
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {},
-                        ),
-                ) {
-                    when (value) {
-                        is DrillTarget.Category -> CategoryDetailScreen(categoryName = value.name, onBack = onClose)
-                        DrillTarget.License -> LicenseScreen(onBack = onClose)
-                    }
+                    M3Text(
+                        text = item.label,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Visible
+                    )
                 }
             }
         }
@@ -566,7 +417,7 @@ fun FeatureRow(
         is ClickableFeature -> BasicComponent(
             onClick = {
                 runCatching { item.onClick(context) }
-                    .onFailure { WeLogger.e(nameOf(SettingsActivity::class), "onClick failed for ${item.displayName}", it) }
+                    .onFailure { WeLogger.e("SettingsActivity", "onClick failed for ${item.displayName}", it) }
             },
             endActions = {
                 if (!item.noSwitchWidget) {

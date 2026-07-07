@@ -59,7 +59,6 @@ import com.composables.icons.materialsymbols.outlined.Save
 import com.composables.icons.materialsymbols.outlined.Share
 import com.composables.icons.materialsymbols.outlined.Vertical_align_bottom
 import com.composables.icons.materialsymbols.outlined.Vertical_align_top
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.ui.content.liquid.vibrancy
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -102,7 +101,7 @@ import kotlin.io.path.name
 import kotlin.io.path.readText
 import androidx.compose.animation.core.tween as animTween
 
-private val LOGS_TAG = nameOf(SettingsActivity::class)
+private val LOGS_TAG = "SettingsActivity"
 
 /** Which log kind a page is showing. */
 private enum class LogKind { RUN, CRASH }

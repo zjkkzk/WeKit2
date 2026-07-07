@@ -39,7 +39,6 @@ import com.tencent.mm.ui.conversation.BaseConversationUI
 import com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI
 import com.tencent.mm.ui.conversation.MainUI
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
@@ -82,14 +81,14 @@ import kotlin.io.path.writeText
 import java.lang.reflect.Modifier as JavaModifier
 
 @Feature(name = "对话归拢", categories = ["聊天"], description = "将多个对话归拢在一个文件夹内\n设置对话头像需同时启用「自定义好友本地头像」")
-object AggregateChats : ClickableFeature(),
+object ConversationAggregation : ClickableFeature(),
     WeDatabaseListenerApi.IQueryListener,
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener,
     WeStartActivityApi.IStartActivityListener,
     IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "AggregateChats"
     const val FOLDER_PREFIX = "wekit_folder_"
     private const val FOLDER_CONFIG_MENU_ID = 0x0721C0DE
     private const val REMOVE_FROM_FOLDER_MENU_ID = 777020
@@ -206,10 +205,6 @@ object AggregateChats : ClickableFeature(),
 
     private val folderMembersCache = ConcurrentHashMap<String, List<String>>()
 
-    // High 8 bits (pin / move-up) of each folder row, captured before clearStaleFolderMappings
-    // deletes the row, so the pin state can be restored when syncFolder recreates it.
-    private val folderPinFlags = ConcurrentHashMap<String, Long>()
-
     private val suppressQueryRewrite = ThreadLocal.withInitial { false }
 
     // Reactive refresh: WeChat updates member conversation rows (new message / read state)
@@ -249,6 +244,14 @@ object AggregateChats : ClickableFeature(),
                 null
             }
         }
+
+        // Restore the materialized folder rows when re-enabled at runtime (DB already up), since
+        // onDisable released them. On cold startup the DB isn't ready yet and this is a no-op —
+        // MainUI.onResume (hookMainUiRefresh) runs the first sync once WeChat is up.
+        if (WeDatabaseApi.isReady) {
+            syncFoldersToDatabase()
+        }
+        WeConversationApi.reloadConversations()
     }
 
     override fun onDisable() {
@@ -256,6 +259,33 @@ object AggregateChats : ClickableFeature(),
         WeStartActivityApi.removeListener(this)
         CustomLocalFriendAvatars.fallbackUsernameProvider = null
         stopRefreshThread()
+
+        // Release every folder back to the homepage — unmap members and delete all wekit_folder_*
+        // rows — so disabling doesn't leave ghost aggregate conversations behind, exactly as if the
+        // user had deleted every folder. The saved config is left untouched so onEnable can restore.
+        releaseAllFolders()
+    }
+
+    /**
+     * Reverses [syncFoldersToDatabase]: returns every folder member to the root homepage list and
+     * removes all folder rows (rconversation / rcontact / img_flag). Mirrors deleting every folder
+     * by hand, but keeps the on-disk config so the folders come back on the next onEnable.
+     */
+    private fun releaseAllFolders() {
+        if (!WeDatabaseApi.isReady) return
+        runCatching {
+            withQueryRewriteSuppressed {
+                if (!isFolderSchemaReady()) return@withQueryRewriteSuppressed
+                // Preserve each folder's pin / move-up bits in memory so a later onEnable in the
+                // same process restores them when composeFolderFlag recreates the rows.
+                snapshotFolderPinFlags(loadFolders())
+                clearStaleFolderMappings()
+            }
+            WeConversationApi.reloadConversations()
+            WeLogger.i(TAG, "released all folders on disable")
+        }.onFailure {
+            WeLogger.e(TAG, "failed to release folders on disable", it)
+        }
     }
 
     override fun onClick(context: ComponentActivity) {
@@ -817,10 +847,27 @@ object AggregateChats : ClickableFeature(),
         }
     }
 
+    /**
+     * Captures each folder row's live pin / move-up bits into [ChatFolder.pinFlag] and persists the
+     * folder list, just before [clearStaleFolderMappings] deletes the rows. Since the pin flag is
+     * stored in chat_folders.json, it survives a process restart between onDisable (which deletes
+     * every row) and the next onEnable — [composeFolderFlag] restores it when recreating the rows.
+     *
+     * Only folders whose row actually exists update the snapshot — the live row is WeChat's current
+     * truth (pin set/cleared via setPlacedTop). When no row exists (e.g. the first sync after
+     * re-enabling in a fresh process, where onDisable already deleted every row), the previously
+     * persisted [ChatFolder.pinFlag] is left intact rather than overwritten with 0, so the user's
+     * pin choice isn't silently lost.
+     */
     private fun snapshotFolderPinFlags(folders: List<ChatFolder>) {
-        folders.forEach { folder ->
-            folderPinFlags[folder.id] = (existingFolderFlag(folder.id) ?: 0L) and FLAG_HIGH_MASK
+        var changed = false
+        val updated = folders.map { folder ->
+            val liveHigh = existingFolderFlag(folder.id)?.and(FLAG_HIGH_MASK) ?: return@map folder
+            if (liveHigh == folder.pinFlag) return@map folder
+            changed = true
+            folder.copy(pinFlag = liveHigh)
         }
+        if (changed) saveFolders(updated)
     }
 
     private fun clearStaleFolderMappings() {
@@ -1000,12 +1047,13 @@ object AggregateChats : ClickableFeature(),
      * WeChat's setPlacedTop / unSetPlacedTop) survives our REPLACE, while the low 56 bits
      * track the latest member's conversationTime. Mirrors WeChat's xg3.b.c() packing.
      *
-     * Prefers the live folder row's high bits (WeChat's current truth); when the row was
-     * just deleted by clearStaleFolderMappings, falls back to the pre-delete snapshot.
+     * Prefers the live folder row's high bits (WeChat's current truth); when the row was just
+     * deleted by clearStaleFolderMappings — or was never created because the process restarted
+     * while disabled — falls back to the pin flag persisted on the folder in chat_folders.json.
      */
     private fun composeFolderFlag(folderId: String, conversationTime: Long): Long {
         val liveHigh = existingFolderFlag(folderId)?.and(FLAG_HIGH_MASK)
-        val highBits = liveHigh ?: (folderPinFlags[folderId] ?: 0L)
+        val highBits = liveHigh ?: (folderById(folderId)?.pinFlag ?: 0L)
         return highBits or (conversationTime and FLAG_TIME_MASK)
     }
 
@@ -1589,7 +1637,9 @@ object AggregateChats : ClickableFeature(),
                             members = members.toList().sorted(),
                             type = type,
                             selectFields = selectFields.trim(),
-                            whereClause = whereClause.trim()
+                            whereClause = whereClause.trim(),
+                            // Carry the pin state forward — editing a folder must not reset its pin.
+                            pinFlag = folder?.pinFlag ?: 0L
                         )
                         onSave(next)
                         showToast("已保存")
@@ -1753,7 +1803,11 @@ object AggregateChats : ClickableFeature(),
         val members: List<String> = emptyList(),
         val type: FolderType = FolderType.MANUAL,
         val selectFields: String = "",
-        val whereClause: String = ""
+        val whereClause: String = "",
+        // High 8 bits (pin / move-up state, owned by WeChat's setPlacedTop / unSetPlacedTop) of this
+        // folder's rconversation row, mirrored here so it survives onDisable deleting the row. Kept
+        // in sync from the live row by snapshotFolderPinFlags and restored by composeFolderFlag.
+        val pinFlag: Long = 0L
     )
 
     private data class FolderSummary(

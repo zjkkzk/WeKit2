@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
@@ -44,7 +43,7 @@ import kotlin.random.Random
 @Feature(name = "自动接收转账", categories = ["红包与支付"], description = "监听消息并自动接收转账")
 object AutoAcceptTransfers : ClickableFeature(), WeDatabaseListenerApi.IInsertListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "AutoAcceptTransfers"
 
     private var transferNotif by WePrefs.prefOption("transfer_notification", false)
     private var transferSelf by WePrefs.prefOption("transfer_self", false)

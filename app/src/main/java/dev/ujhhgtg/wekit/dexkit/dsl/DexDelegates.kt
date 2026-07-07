@@ -1,6 +1,7 @@
+@file:Suppress("unused")
+
 package dev.ujhhgtg.wekit.dexkit.dsl
 
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
 import dev.ujhhgtg.wekit.dexkit.DexMethodDescriptor
@@ -72,7 +73,7 @@ class DexClassDelegate internal constructor(
     }
 
     fun setPlaceholderDescriptor() {
-        WeLogger.w(nameOf(DexClassDelegate::class), "setting placeholder for $key")
+        WeLogger.w("DexClassDelegate", "setting placeholder for $key")
         setDescriptor("com.tencent.mm.ui.LauncherUI")
     }
 
@@ -153,7 +154,7 @@ class DexFieldDelegate internal constructor(
     }
 
     fun setPlaceholderDescriptor() {
-        WeLogger.w(nameOf(DexFieldDelegate::class), "setting placeholder for $key")
+        WeLogger.w("DexFieldDelegate", "setting placeholder for $key")
         setDescriptor(PLACEHOLDER_DESCRIPTOR)
     }
 
@@ -260,7 +261,7 @@ class DexMethodDelegate internal constructor(
         setDescriptor(DexMethodDescriptor(className, methodName, methodSign))
 
     fun setPlaceholderDescriptor() {
-        WeLogger.w(nameOf(DexMethodDelegate::class), "setting placeholder for $key")
+        WeLogger.w("DexMethodDelegate", "setting placeholder for $key")
         setDescriptor(DexMethodDescriptor("Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;"))
     }
 
@@ -342,7 +343,7 @@ class DexConstructorDelegate internal constructor(
     }
 
     fun setPlaceholderDescriptor() {
-        WeLogger.w(nameOf(DexMethodDelegate::class), "setting placeholder for $key")
+        WeLogger.w("DexMethodDelegate", "setting placeholder for $key")
         setDescriptor(DexMethodDescriptor("Lcom/tencent/mm/ui/LauncherUI;->getInstance()Lcom/tencent/mm/ui/LauncherUI;"))
     }
 

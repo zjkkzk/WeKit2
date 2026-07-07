@@ -35,7 +35,6 @@ import androidx.core.net.toUri
 import coil3.load
 import coil3.request.allowHardware
 import coil3.request.crossfade
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.fields
 import dev.ujhhgtg.reflekt.firstField
 import dev.ujhhgtg.reflekt.firstMethod
@@ -93,7 +92,7 @@ object CustomLocalFriendAvatars : ClickableFeature(), IContactInfoProvider, IRes
     private const val SEP = ";"
     private const val VIEW_TAG_CUSTOM_AVATAR = 0x57434156
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "CustomLocalFriendAvatars"
     private val avatarMapFile = KnownPaths.moduleData / "custom_avatars_map.json"
 
     // ji1.s.og, most of com.tencent.mm.feature.avatar.w calls this,

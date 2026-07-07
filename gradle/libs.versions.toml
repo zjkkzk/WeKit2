@@ -36,6 +36,8 @@ materialkolor = "4.1.1" # material-color-utilities 4.1.1, matches miuix's transi
 markwon = "4.6.2"
 annotation = "1.10.0"
 mcp-server = "0.14.0"
+mcp-client = "0.14.0"
+room = "2.8.2"
 ktor = "3.5.1"
 dexmaker = "2.28.6"
 #arsclib = "1.4.0"
@@ -123,6 +125,9 @@ aboutlibraries-core = { module = "com.mikepenz:aboutlibraries-core", version.ref
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibraries" }
 
 mcp-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcp-server" }
+mcp-client = { module = "io.modelcontextprotocol:kotlin-sdk-client", version.ref = "mcp-client" }
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "ktor" }
 ktor-server-cio = { module = "io.ktor:ktor-server-cio" }
 ktor-server-cors = { module = "io.ktor:ktor-server-cors" }

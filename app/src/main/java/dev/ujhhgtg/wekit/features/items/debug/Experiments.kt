@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.debug
 
 import androidx.activity.ComponentActivity
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 
@@ -9,7 +8,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 object Experiments : ClickableFeature() {
 
     @Suppress("unused")
-    private val TAG = This.Class.simpleName
+    private const val TAG = "Experiments"
 
     override val noSwitchWidget = true
 

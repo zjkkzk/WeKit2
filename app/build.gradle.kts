@@ -70,7 +70,7 @@ android {
 //                "x86_64",
 //                "x86"
             )
-            isUniversalApk = false
+            isUniversalApk = true
         }
     }
 
@@ -299,6 +299,12 @@ cargoTasks.forEach { t -> t.configure { dependsOn(configureCargo) } }
 
 // --- end tasks ---
 
+ksp {
+    // Room schema export for migration diffing
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)
@@ -369,6 +375,9 @@ dependencies {
     implementation(libs.markwon.html)
 
     implementation(libs.mcp.server)
+    implementation(libs.mcp.client)
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
     implementation(platform(libs.ktor.bom))
     implementation(libs.ktor.server.cio)
     implementation(libs.ktor.server.cors)
@@ -382,7 +391,6 @@ dependencies {
 
     implementation(libs.osmdroid.android)
 
-    implementation(project(":libs:external:comptime-kt:api"))
     compileOnly(project(":libs:common:stubs"))
 }
 
@@ -398,14 +406,8 @@ configurations.all {
 //    }
 }
 
-evaluationDependsOn(":libs:external:comptime-kt:plugin")
 tasks.withType<KotlinJvmCompile>().configureEach {
-    val pluginJarTask = project(":libs:external:comptime-kt:plugin").tasks.named<org.gradle.jvm.tasks.Jar>("jar")
-    dependsOn(pluginJarTask)
-
     compilerOptions {
-        val pluginJarPath = pluginJarTask.get().archiveFile.get().asFile.absolutePath
-        freeCompilerArgs.add("-Xplugin=$pluginJarPath")
         freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api")
         freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi")
     }

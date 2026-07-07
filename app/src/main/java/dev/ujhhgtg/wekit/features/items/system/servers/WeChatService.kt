@@ -219,6 +219,46 @@ object WeChatService {
         else Result.Error("Failed to send app brand message")
     }
 
+    fun cacheImage(msgSvrId: Long): Result<String> =
+        WeMessageApi.cacheImage(msgSvrId)
+            ?.let { Result.Success(it) }
+            ?: Result.Error("Failed to cache image")
+
+    fun downloadImage(msgSvrId: Long): Result<String> =
+        WeMessageApi.downloadImage(msgSvrId)
+            ?.let { Result.Success(it) }
+            ?: Result.Error("Failed to download image")
+
+    fun downloadSticker(msgSvrId: Long): Result<String> =
+        WeMessageApi.cacheAndSaveSticker(msgSvrId)
+            ?.let { Result.Success(it) }
+            ?: Result.Error("Failed to download sticker")
+
+    fun downloadVoice(msgSvrId: Long): Result<String> =
+        WeMessageApi.cacheAndSaveVoice(msgSvrId)
+            ?.let { Result.Success(it) }
+            ?: Result.Error("Failed to download voice")
+
+    fun cacheFile(msgSvrId: Long): Result<String> =
+        WeMessageApi.cacheFile(msgSvrId)
+            ?.let { Result.Success(it) }
+            ?: Result.Error("Failed to cache file")
+
+    fun downloadFile(msgSvrId: Long): Result<String> =
+        WeMessageApi.downloadFile(msgSvrId)
+            ?.let { Result.Success(it) }
+            ?: Result.Error("Failed to download file")
+
+    fun saveSticker(msgSvrId: Long): Result<String> =
+        WeMessageApi.cacheAndSaveSticker(msgSvrId)
+            ?.let { Result.Success(it) }
+            ?: Result.Error("Failed to save sticker")
+
+    fun saveVoice(msgSvrId: Long): Result<String> =
+        WeMessageApi.cacheAndSaveVoice(msgSvrId)
+            ?.let { Result.Success(it) }
+            ?: Result.Error("Failed to save voice")
+
     fun revokeMessage(msgId: Long): Result<Unit> =
         runCatching {
             if (WeMessageApi.revokeMsg(msgId)) Result.Success(Unit)
@@ -365,7 +405,7 @@ object WeChatService {
 
     fun audioSilkToMp3(srcPath: String, destPath: String): Result<Unit> =
         runCatching {
-            val pcm = destPath + ".tmp"
+            val pcm = "$destPath.tmp"
             AudioUtils.silkToPcm(srcPath, pcm)
             AudioUtils.pcmToMp3(pcm, destPath)
             runCatching { File(pcm).delete() }
@@ -422,11 +462,22 @@ object WeChatService {
         } else emptyMap()
 
         val messages = WeDatabaseApi.getMessages(convId, pageIndex, pageSize).map { msg ->
-            val match = GROUP_SENDER_REGEX.find(msg.content).takeIf { isGroup }
-            val sender = match?.groupValues?.get(1)?.let { membersMap[it] ?: it } ?: "<myself>"
             val isText = MessageType.fromCode(msg.typeCode)?.isText ?: false
             val typeStr = MessageType.fromCode(msg.typeCode)?.name?.lowercase() ?: "unknown"
-            val content = if (isText) match?.groupValues?.get(2) ?: msg.content else "<type:$typeStr>"
+            val (sender, content) = if (msg.talker.isGroupChatWxId) {
+                if (msg.isSend != 0) {
+                    "<myself>" to if (isText) msg.content else "<type:$typeStr>"
+                } else {
+                    val match = GROUP_SENDER_REGEX.find(msg.content).takeIf { isGroup }
+                    val sender = match?.groupValues?.get(1)?.let { membersMap[it] ?: it } ?: "<unknown>"
+                    val content = if (isText) match?.groupValues?.get(2) ?: msg.content else "<type:$typeStr>"
+                    sender to content
+                }
+            } else {
+                val sender = if (msg.isSend != 0) "<myself>" else msg.talker
+                val content = if (isText) msg.content else "<type:$typeStr>"
+                sender to content
+            }
             MessageInfo(sender, content, typeStr)
         }
         return Result.Success(messages)

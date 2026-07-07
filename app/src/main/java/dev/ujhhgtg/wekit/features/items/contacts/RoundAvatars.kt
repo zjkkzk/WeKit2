@@ -126,7 +126,7 @@ object RoundAvatars : ClickableFeature(), IResolveDex {
 
     private fun notifyCustomContactAvatarChanged() {
         runCatching {
-            if (CustomLocalFriendAvatars.hasEnabled) {
+            if (CustomLocalFriendAvatars.isActive) {
                 CustomLocalFriendAvatars.onRoundAvatarConfigChanged()
             }
         }

@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import com.tencent.mm.ui.chatting.ChattingUI
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -15,7 +14,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "分裂群组", categories = ["联系人与群组", "娱乐"], description = "让群聊一分为二; 在假群聊中发送的红包即为假红包")
 object SplitGroupChats : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "SplitGroupChats"
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {

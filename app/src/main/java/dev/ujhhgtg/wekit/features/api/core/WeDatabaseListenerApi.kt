@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.api.core
 import android.annotation.SuppressLint
 import android.content.ContentValues
 import com.tencent.wcdb.database.SQLiteDatabase
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.constants.Preferences
@@ -30,7 +29,7 @@ object WeDatabaseListenerApi : ApiFeature() {
         fun onQuery(sql: String): String?
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeDatabaseListenerApi"
 
     private val insertListeners = CopyOnWriteArrayList<IInsertListener>()
     private val updateListeners = CopyOnWriteArrayList<IUpdateListener>()

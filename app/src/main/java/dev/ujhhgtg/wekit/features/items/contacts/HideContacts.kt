@@ -27,7 +27,6 @@ import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.chatting.ChattingUI
 import com.tencent.wcdb.database.SQLiteDatabase
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.reflekt.utils.makeAccessible
@@ -53,6 +52,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.reflection.BString
 import java.lang.reflect.Field
 import kotlin.math.sqrt
+import java.lang.reflect.Modifier as JavaModifier
 
 
 @Feature(
@@ -69,15 +69,20 @@ import kotlin.math.sqrt
 object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputBarListener,
     WeDatabaseListenerApi.IQueryListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "HideContacts"
 
     private const val KEY_CONTACTS = "hidden_contacts"
+
+    // One-time flag: older versions hid chats by writing parentRef='hidden_conv_parent'. Once we've
+    // cleared that stale marker for the current hidden set (so #show / un-hide work again), we never
+    // need to re-check. New hides rely purely on the query-time filter and never set the marker.
+    private const val KEY_LEGACY_MIGRATED = "hidden_parentref_migrated"
 
     var hiddenContacts
         get() = WePrefs.getStringSetOrDef(KEY_CONTACTS, emptySet())
         set(value) {
             for (convId in value) {
-                WeConversationApi.setIfNotifyNewMessages(convId, false)
+                WeConversationApi.setDoNotDisturb(convId, true)
             }
             WePrefs.putStringSet(KEY_CONTACTS, value)
         }
@@ -162,10 +167,16 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     override fun onEnable() {
         // --- home screen conversation list ---
 
+        // Hide conversations at query time instead of writing parentRef='hidden_conv_parent'
+        // (WeConversationApi.setConversationsVisibility). WeChat resets parentRef to '' whenever a
+        // new message arrives, so a one-shot parentRef write can't keep a chat hidden — the row pops
+        // back into the list. Injecting a `username NOT IN (...)` predicate into WeChat's own
+        // conversation-list query (the same chokepoint ConversationGrouping/AggregateChats use)
+        // filters hidden chats on every read, so no incoming message can resurface them.
+        hookConversationListQuery()
+
         WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
-            WeConversationApi.setConversationsVisibility(false, hiddenContacts.also {
-                WeLogger.d(TAG, "hid ${it.size} contacts in conversation list")
-            }.toTypedArray())
+            migrateLegacyHiddenParentRef()
 
             val context = thisObject.reflekt()
                 .firstField { type { it isSubclassOf Activity::class } }
@@ -432,6 +443,99 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
         return rewritten
     }
 
+    // The homepage conversation-list cursor does NOT flow through the SQLiteDatabase.rawQuery path
+    // that WeDatabaseListenerApi (onQuery) hooks; WeChat builds it through its own SQLite wrapper
+    // (d95.b0.f(sql, args, int)). We hook that wrapper directly — the same chokepoint
+    // ConversationGrouping/AggregateChats use — and append a `username NOT IN (...)` predicate so
+    // hidden chats are filtered on every read. Unlike the one-shot parentRef write, no incoming
+    // message can undo this, so a hidden chat never resurfaces when it receives a new message.
+    private fun hookConversationListQuery() {
+        if (methodSqliteWrapperRawQuery.isPlaceholder) {
+            WeLogger.w(TAG, "SQLite wrapper query method not resolved; conversation-list hiding disabled")
+            return
+        }
+        methodSqliteWrapperRawQuery.hookBefore {
+            val sql = args.firstOrNull() as? String ?: return@hookBefore
+            rewriteConversationListSql(sql)?.let { args[0] = it }
+        }
+    }
+
+    // Returns the rewritten SQL, or null to leave it untouched.
+    private fun rewriteConversationListSql(sql: String): String? {
+        if (temporarilyShown) return null
+
+        val hidden = hiddenContacts
+        if (hidden.isEmpty()) return null
+
+        if (!looksLikeConversationListQuery(sql)) return null
+
+        val condition = "rconversation.username NOT IN (" +
+                hidden.joinToString(",") { "'${it.replace("'", "''")}'" } + ")"
+        return injectCondition(sql, condition)
+    }
+
+    private fun looksLikeConversationListQuery(sql: String): Boolean {
+        val lower = sql.lowercase()
+        if (!lower.contains("select")) return false
+        if (!lower.contains("from rconversation")) return false
+        // Match only the homepage list query, which spells out per-conversation display columns.
+        // Folder-container / single-row lookups use `select *` (no such columns) and aggregate/count
+        // reads lack them too, so they're skipped and left untouched. NB: we deliberately do NOT bail
+        // on the substring "wekit_folder_" — when AggregateChats is enabled it appends its own
+        // `NOT LIKE 'wekit_folder_%'` clause to this very query, and bailing on it would skip hiding.
+        return lower.contains("conversationtime") &&
+                lower.contains("unreadcount") &&
+                lower.contains("digestuser")
+    }
+
+    // Insert an extra WHERE predicate before any ORDER BY / GROUP BY / LIMIT tail, joining with the
+    // existing WHERE when present. Mirrors ConversationGrouping.injectCondition.
+    private fun injectCondition(sql: String, condition: String): String {
+        val insertionPoint = listOf(" order by ", " group by ", " limit ")
+            .map { sql.indexOf(it, ignoreCase = true) }
+            .filter { it >= 0 }
+            .minOrNull() ?: sql.length
+        val head = sql.substring(0, insertionPoint)
+        val tail = sql.substring(insertionPoint)
+        val connector = if (head.contains(" where ", ignoreCase = true)) " AND " else " WHERE "
+        return "$head$connector$condition$tail"
+    }
+
+    // The parentRef marker older versions wrote via WeConversationApi.setConversationsVisibility to
+    // hide a chat. WeChat's native list filter (m4.O) hides rows whose parentRef isn't null/empty.
+    private const val LEGACY_HIDDEN_PARENT_REF = "hidden_conv_parent"
+
+    // One-time cleanup for users upgrading from the parentRef-based hiding: clear the stale marker
+    // for our currently-hidden chats. Without this, WeChat's own filter keeps hiding a chat (until
+    // its next message resets parentRef) even after the user un-hides it, since un-hiding only drops
+    // it from our set and never touched parentRef. Scoped to our hidden set so we don't disturb rows
+    // hidden by 显隐全部对话 (ToggleAllConversationsVisibility), which shares the same marker.
+    private fun migrateLegacyHiddenParentRef() {
+        if (WePrefs.getBoolOrFalse(KEY_LEGACY_MIGRATED)) return
+
+        val hidden = hiddenContacts
+        if (hidden.isEmpty()) {
+            WePrefs.putBool(KEY_LEGACY_MIGRATED, true)
+            return
+        }
+
+        // DB not ready yet: leave the flag unset so we retry on the next launch.
+        if (!WeDatabaseApi.isReady) return
+
+        try {
+            val inClause = hidden.joinToString(",") { "'${it.replace("'", "''")}'" }
+            WeDatabaseApi.execStatement(
+                "UPDATE rconversation SET parentRef = '' " +
+                        "WHERE parentRef = '$LEGACY_HIDDEN_PARENT_REF' " +
+                        "AND username IN ($inClause)"
+            )
+            WePrefs.putBool(KEY_LEGACY_MIGRATED, true)
+            WeLogger.d(TAG, "cleared legacy hidden parentRef markers for ${hidden.size} chats")
+        } catch (ex: Exception) {
+            WeLogger.w(TAG, "failed to clear legacy hidden parentRef markers", ex)
+        }
+    }
+
     private var temporarilyShown = false
 
     private var pendingVoipUser: String? = null
@@ -495,6 +599,19 @@ object HideContacts : ClickableFeature(), IResolveDex, WeChatInputBarApi.IInputB
     }
 
     //    private val methodMainAdapterPerformSearch by dexMethod()
+
+    // WeChat's SQLite wrapper query: d95.b0.f(String sql, String[] args, int) -> Cursor. The
+    // homepage conversation-list cursor (com.tencent.mm.storage.m4.A/B) is built through this
+    // wrapper, NOT the standard SQLiteDatabase.rawQuery path WeDatabaseListenerApi hooks, so we
+    // intercept it directly — the same chokepoint ConversationGrouping/AggregateChats use.
+    private val methodSqliteWrapperRawQuery by dexMethod(allowFailure = true) {
+        matcher {
+            modifiers = JavaModifier.PUBLIC
+            usingEqStrings("sql is null ", "DB IS CLOSED ! {%s}")
+            paramTypes("java.lang.String", "java.lang.String[]", "int")
+            returnType("android.database.Cursor")
+        }
+    }
     private val methodAddressMvvmListPreprocessList by dexMethod {
         matcher {
             declaredClass = "com.tencent.mm.ui.contact.address.AddressLiveList"

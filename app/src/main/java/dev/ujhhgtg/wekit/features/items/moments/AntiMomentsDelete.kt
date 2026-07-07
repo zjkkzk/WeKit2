@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import android.content.ContentValues
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -11,7 +10,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "拦截朋友圈删除", categories = ["朋友圈"], description = "拦截他人朋友圈删除并添加标记")
 object AntiMomentsDelete : SwitchFeature(), WeDatabaseListenerApi.IUpdateListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "AntiMomentsDelete"
     private const val TBL_SNS_INFO = "SnsInfo"
     const val INTERCEPT_MARK = "[拦截删除]"
 

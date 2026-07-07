@@ -5,7 +5,6 @@ import android.os.Looper
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
@@ -65,7 +64,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 object JsApiExposer {
-    private val TAG = This.Class.simpleName
+    private const val TAG = "JsApiExposer"
     private const val TAG_LOG_API = "JsApiExposer.LogApi"
     private const val TAG_HTTP_API = "JsApiExposer.HttpApi"
     private const val TAG_XPOSED_API = "JsApiExposer.XposedApi"

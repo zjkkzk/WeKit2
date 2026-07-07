@@ -12,7 +12,6 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.compose.ui.graphics.toArgb
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -36,7 +35,7 @@ import dev.ujhhgtg.wekit.utils.android.isDarkMode
 @Feature(name = "莫奈引擎", categories = ["API"], description = "根据模块设置的自定义配色为微信原生组件上色")
 object MonetEngine : ApiFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "MonetEngine"
 
     /** WeChat's hardcoded brand green — the pixels we replace. */
     private const val DEFAULT_COLOR = -16268960 // 0xFF07C160

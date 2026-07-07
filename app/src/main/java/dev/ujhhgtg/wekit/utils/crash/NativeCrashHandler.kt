@@ -1,11 +1,10 @@
 package dev.ujhhgtg.wekit.utils.crash
 
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object NativeCrashHandler {
 
-    private val TAG = nameOf(NativeCrashHandler::class)
+    private const val TAG = "NativeCrashHandler"
 
     var isInstalled: Boolean = false
 

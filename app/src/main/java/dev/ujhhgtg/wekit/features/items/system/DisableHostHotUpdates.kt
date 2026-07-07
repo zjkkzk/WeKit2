@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.system
 import android.annotation.SuppressLint
 import android.content.ComponentName
 import com.tencent.tinker.loader.shareutil.ShareTinkerInternals
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -61,5 +60,5 @@ object DisableHostHotUpdates : SwitchFeature() {
         }
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "DisableHostHotUpdates"
 }

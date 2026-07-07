@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.contacts
 
 import android.app.Activity
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -10,7 +9,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "移除消息批量转发限制", categories = ["联系人与群组"], description = "移除消息多选目标的 9 个数量限制")
 object RemoveMessageBatchForwardLimit : SwitchFeature() {
 
-    private val TAG = nameOf(RemoveMessageBatchForwardLimit)
+    private const val TAG = "RemoveMessageBatchForwardLimit"
 
     override fun onEnable() {
         listOf(

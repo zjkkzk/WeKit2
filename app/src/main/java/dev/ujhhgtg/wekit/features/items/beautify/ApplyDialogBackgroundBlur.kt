@@ -17,7 +17,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.tencent.mm.ui.halfscreen.HalfScreenTransparentActivity
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -34,7 +33,7 @@ import kotlin.math.roundToInt
 @Feature(name = "对话框窗口级背景模糊", categories = ["界面美化"], description = "为模块与微信的对话框添加窗口级模糊处理 [需 SDK >= 31]")
 object ApplyDialogBackgroundBlur : ClickableFeature(), IResolveDex {
 
-    private val TAG = nameOf(ApplyDialogBackgroundBlur)
+    private const val TAG = "ApplyDialogBackgroundBlur"
 
     const val KEY_BLUR_RADIUS = "blur_radius"
     const val DEFAULT_BLUR_RADIUS = 20

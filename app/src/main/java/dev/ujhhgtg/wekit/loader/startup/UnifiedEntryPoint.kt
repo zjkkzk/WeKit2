@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.loader.startup
 
 import android.app.Application
 import android.content.Context
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
@@ -14,7 +13,7 @@ import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 
 object UnifiedEntryPoint {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "UnifiedEntryPoint"
 
     fun entry(
         loaderService: ILoaderService,

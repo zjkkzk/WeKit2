@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.loader.entry.lxp
 
 import android.util.Log
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.loader.abc.IClassLoaderHelper
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
@@ -19,7 +18,7 @@ import java.lang.reflect.Method
 object LxpHookImpl : IHookBridge, ILoaderService {
 
     lateinit var self: XposedModule
-    private val TAG = This.Class.simpleName
+    private const val TAG = "LxpHookImpl"
 
     override var classLoaderHelper: IClassLoaderHelper? = null
 
@@ -29,7 +28,7 @@ object LxpHookImpl : IHookBridge, ILoaderService {
     override val frameworkVersionCode: Long get() = self.frameworkVersionCode
     override val hookCounter: Long get() = LxpHookWrapper.hookCounter.toLong()
     override val hookedMethods: Set<Member?> get() = LxpHookWrapper.hookedMethodsRaw
-    override val entryPointName: String = This.Class.name
+    override val entryPointName: String = "dev.ujhhgtg.wekit.loader.entry.lxp.LxpHookImpl"
     override val loaderVersionCode: Int = BuildConfig.VERSION_CODE
     override val loaderVersionName: String = BuildConfig.VERSION_NAME
     override val mainModulePath: String get() = self.getModuleApplicationInfo().sourceDir

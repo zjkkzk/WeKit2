@@ -18,7 +18,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -45,7 +44,7 @@ import kotlin.time.Duration.Companion.milliseconds
 )
 object BatchAddLabel : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "BatchAddLabel"
 
     override val noSwitchWidget = true
 

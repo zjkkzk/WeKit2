@@ -7,7 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLogRespProto
@@ -23,7 +22,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "设置微信昵称", categories = ["个人资料"], description = "通过发包来更灵活的设置微信昵称")
 object SetProfileNickname : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "SetProfileNickname"
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {

@@ -31,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.toClass
@@ -468,7 +467,7 @@ object FeatureFlagManager : ClickableFeature(), IResolveDex {
         )
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "FeatureFlagManager"
 
     @Composable
     private fun OverrideValueDialog(

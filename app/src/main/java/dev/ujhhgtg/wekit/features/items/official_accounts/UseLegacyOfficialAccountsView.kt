@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.official_accounts
 import android.content.ComponentName
 import android.content.Intent
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -27,7 +26,7 @@ object UseLegacyOfficialAccountsView : SwitchFeature(), WeStartActivityApi.IStar
         if (className == "${PackageNames.WECHAT}.plugin.brandservice.ui.flutter.BizFlutterTLFlutterViewActivity" ||
             className == "${PackageNames.WECHAT}.plugin.brandservice.ui.timeline.BizTimeLineUI"
         ) {
-            WeLogger.d(This.Class.simpleName, "redirected $className")
+            WeLogger.d("UseLegacyOfficialAccountsView", "redirected $className")
             intent.component = ComponentName(
                 HostInfo.packageName,
                 "${PackageNames.WECHAT}.ui.conversation.NewBizConversationUI"

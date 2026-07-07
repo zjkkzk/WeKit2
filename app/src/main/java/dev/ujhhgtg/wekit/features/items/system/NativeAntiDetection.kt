@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.system
 
 import android.content.pm.PackageManager
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -19,7 +18,7 @@ import kotlin.io.path.writeText
 )
 object NativeAntiDetection : SwitchFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "NativeAntiDetection"
 
     /**
      * On-disk request flag. `native_init` reads this the moment

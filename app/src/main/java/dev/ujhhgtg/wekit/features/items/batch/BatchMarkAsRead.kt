@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.batch
 
 import androidx.activity.ComponentActivity
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -22,7 +21,7 @@ import kotlinx.coroutines.launch
 )
 object BatchMarkAsRead : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "BatchMarkAsRead"
 
     override val noSwitchWidget = true
 

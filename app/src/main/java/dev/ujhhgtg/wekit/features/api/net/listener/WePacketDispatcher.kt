@@ -4,7 +4,6 @@ import android.os.Handler
 import android.os.Looper
 import androidx.core.os.postDelayed
 import com.tencent.kinda.framework.module.impl.WXPCommReqResp
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -20,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Feature(name = "数据包拦截与篡改服务", categories = ["API"], description = "响应数据包拦截与篡改")
 object WePacketDispatcher : ApiFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WePacketDispatcher"
 
     private val classOnGYNetEnd by dexClass {
         searchPackages("com.tencent.mm.network")

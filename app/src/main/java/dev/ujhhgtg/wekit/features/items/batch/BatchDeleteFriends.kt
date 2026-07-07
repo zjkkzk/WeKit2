@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.batch
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -28,7 +27,7 @@ import kotlinx.coroutines.launch
 )
 object BatchDeleteFriends : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "BatchDeleteFriends"
 
     override val noSwitchWidget = true
 

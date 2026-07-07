@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.dexkit.cache
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.features.core.BaseFeature
@@ -26,7 +25,7 @@ import kotlin.io.path.writeText
  */
 object DexCacheManager {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "DexCacheManager"
 
     private const val CACHE_DIR_NAME = "dex_cache"
     private const val CACHE_FILE_SUFFIX = ".json"

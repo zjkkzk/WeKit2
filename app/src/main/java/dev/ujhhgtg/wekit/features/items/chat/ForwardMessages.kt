@@ -1,6 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import dev.ujhhgtg.comptime.This
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Forward
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
@@ -30,7 +31,7 @@ import kotlinx.coroutines.withContext
 object ForwardMessages : SwitchFeature(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ForwardMessages"
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)
@@ -44,8 +45,9 @@ object ForwardMessages : SwitchFeature(),
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777010,
-                "转发 [K]",
+                "转发",
                 ForwardIcon,
+                MaterialSymbols.Outlined.Forward,
                 shouldShow = { true }
             ) { view, _, msgInfo ->
                 CoroutineScope(Dispatchers.IO).launch {

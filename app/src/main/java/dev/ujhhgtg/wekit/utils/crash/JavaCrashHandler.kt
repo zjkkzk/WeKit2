@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.utils.crash
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.crash.CrashInfoCollector.collectCrashInfo
@@ -9,7 +8,7 @@ import kotlin.system.exitProcess
 
 object JavaCrashHandler : Thread.UncaughtExceptionHandler {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "JavaCrashHandler"
 
     private val defaultHandler: Thread.UncaughtExceptionHandler? =
         Thread.getDefaultUncaughtExceptionHandler()

@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.official_accounts
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
@@ -44,9 +43,10 @@ import org.json.JSONObject
  *
  * ## [CAPTURE_MODE] / [DIAG_ALL_URIS]（面向众测）
  * - [DIAG_ALL_URIS]：打印每个经过管线的 uri+cgiId，用于确认管线生效、定位真实 endpoint。
- * - [CAPTURE_MODE]：对目标 URI 只打印不修改。首行打印一条 `SUMMARY`，用户一眼即可判断本次是否
- *   抓到广告（内嵌广告 JSON 命中键 / item 携带字段 6），再附完整响应 JSON 供核对。
- * 收集到真实广告样本后，把 [CAPTURE_MODE] 置 false 进入实际过滤。
+ * - [CAPTURE_MODE]：额外打印抓到的广告（在过滤之前）。首行打印一条 `SUMMARY`，用户一眼即可判断
+ *   本次是否抓到广告（内嵌广告 JSON 命中键 / item 携带字段 6），再附完整响应 JSON 供核对。
+ *   注意：**过滤始终执行**，[CAPTURE_MODE] 只控制是否额外 dump，不影响是否修改；收集完样本后
+ *   把它置 false 关掉 dump 即可，过滤照常生效。
  */
 @Feature(
     name = "公众号去广告",
@@ -55,9 +55,9 @@ import org.json.JSONObject
 )
 object RemoveOfficialAccountAds : SwitchFeature(), IWePacketInterceptor {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "RemoveOfficialAccountAds"
 
-    /** 抓包模式：打印抓到的广告。 */
+    /** 抓包模式：额外 dump 抓到的广告（过滤之前）。不影响过滤本身，过滤始终执行。 */
     private const val CAPTURE_MODE = true
 
     /** 诊断模式：打印每个经过管线的 uri+cgiId（不含内容）。 */

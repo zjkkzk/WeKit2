@@ -168,6 +168,7 @@ data class ClearProfileOpProto(
 object OpLog {
 
     /** oplog command ids (decompiled `xx0.*` → `super(<id>)`). */
+    const val CMD_MOD_CONTACT = 2
     const val CMD_DELETE_CONTACT = 4
     const val CMD_BLOCK_CONTACT = 8
     const val CMD_SET_NICKNAME = 64
@@ -180,6 +181,16 @@ object OpLog {
         val bytes = WeProto.encode(payload)
         return OperationProto(cmdId, OpBufProto(length = bytes.size, buf = bytes))
     }
+
+    /**
+     * Wrap already-serialized payload [bytes] as an [OperationProto].
+     *
+     * Use this when the payload proto is built by the host itself (e.g. the modContact `tn4`
+     * proto assembled by WeChat's own `ContactStorageLogic.toModContactOplog`), so its exact
+     * byte layout is reproduced rather than re-encoded from a partial model.
+     */
+    fun operationRaw(cmdId: Int, bytes: ByteArray): OperationProto =
+        OperationProto(cmdId, OpBufProto(length = bytes.size, buf = bytes))
 
     /** Build the full oplog request bytes for a set of [operations]. */
     fun encodeRequest(operations: List<OperationProto>): ByteArray =

@@ -2,14 +2,12 @@ package dev.ujhhgtg.wekit.features.items.miniapps
 
 import android.webkit.ValueCallback
 import android.webkit.WebView
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.eruda.ErudaProvider
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -46,11 +44,7 @@ object ErudaConsole : SwitchFeature(), IResolveDex {
         }
     }
 
-    override fun startup() {
-        if (!TargetProcesses.isInMain && TargetProcesses.currentType != TargetProcesses.PROC_APPBRAND) return
-        _isEnabled = WePrefs.getBoolOrFalse(name)
-        if (_isEnabled) enable()
-    }
+    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
 
     override fun onEnable() {
         xwebOnPageFinished.hookAfter {
@@ -65,18 +59,26 @@ object ErudaConsole : SwitchFeature(), IResolveDex {
 
     private fun injectEruda(webView: Any) {
         try {
-            if (webView is WebView) {
-                webView.evaluateJavascript(ErudaProvider.ERUDA_JS, null)
-                webView.evaluateJavascript("eruda.init();", null)
-            }
-            else {
-                webView.reflekt().firstMethod {
-                    name = "evaluateJavascript"
-                    parameters(BString, ValueCallback::class)
-                    superclass()
-                }.apply {
-                    invoke(ErudaProvider.ERUDA_JS, null)
-                    invoke("eruda.init();", null)
+            when (webView) {
+                is WebView -> {
+                    webView.evaluateJavascript(ErudaProvider.ERUDA_JS, null)
+                    webView.evaluateJavascript("eruda.init();", null)
+                }
+
+                is com.tencent.xweb.WebView -> {
+                    webView.evaluateJavascript(ErudaProvider.ERUDA_JS, null)
+                    webView.evaluateJavascript("eruda.init();", null)
+                }
+
+                else -> {
+                    webView.reflekt().firstMethod {
+                        name = "evaluateJavascript"
+                        parameters(BString, ValueCallback::class)
+                        superclass()
+                    }.apply {
+                        invoke(ErudaProvider.ERUDA_JS, null)
+                        invoke("eruda.init();", null)
+                    }
                 }
             }
             WeLogger.i(TAG, "injected eruda")
@@ -85,5 +87,5 @@ object ErudaConsole : SwitchFeature(), IResolveDex {
         }
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ErudaConsole"
 }

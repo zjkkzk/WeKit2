@@ -58,20 +58,20 @@ object WeServiceApi : ApiFeature(), IResolveDex {
             usingEqStrings("MicroMsg.ChatroomService", "[isEnableRoomManager]")
         }
     }
-    private val classImageInfoStorage by dexClass {
+    val classImageInfoStorage by dexClass {
         matcher {
             usingEqStrings("MicroMsg.ImgInfoStorage", "generateMd5: %s, %s")
         }
     }
-    private val classDownloadImageService by dexClass {
+    val methodDownloadImageServiceDownloadImage by dexMethod {
         matcher {
-            usingEqStrings("ModelImage.DownloadImgService", "cancelNetScene reset curTaskInfo (%s %s %s)")
+            usingEqStrings("ModelImage.DownloadImgService", "] add failed, task already done")
         }
     }
-    private val classImageFeatureService by dexClass {
+    val classImageFeatureService by dexClass {
         matcher {
             addFieldForType(classImageInfoStorage.clazz)
-            addFieldForType(classDownloadImageService.clazz)
+            addFieldForType(methodDownloadImageServiceDownloadImage.method.declaringClass)
         }
     }
     private val methodApiManagerGetApi by dexMethod {

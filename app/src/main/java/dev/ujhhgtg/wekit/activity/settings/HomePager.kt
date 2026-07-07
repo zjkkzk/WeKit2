@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Check_circle
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.features.core.FeaturesProvider
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -73,7 +72,7 @@ private fun openLsposedManager(context: Context) {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
         )
-    }.onFailure { WeLogger.e(nameOf(SettingsActivity::class), "failed to launch LSPosed manager activity", it) }
+    }.onFailure { WeLogger.e("SettingsActivity", "failed to launch LSPosed manager activity", it) }
 
     runCatching {
         val action = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -84,7 +83,7 @@ private fun openLsposedManager(context: Context) {
         context.sendBroadcast(
             Intent(action, "android_secret_code://5776733".toUri()).setPackage("android")
         )
-    }.onFailure { WeLogger.e(nameOf(SettingsActivity::class), "failed to broadcast LSPosed secret code", it) }
+    }.onFailure { WeLogger.e("SettingsActivity", "failed to broadcast LSPosed secret code", it) }
 }
 
 @Composable

@@ -1,12 +1,9 @@
 package dev.ujhhgtg.wekit.features.items.debug
 
 import android.app.Activity
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.HostInfo
-import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.crash.CrashLogsManager
@@ -15,13 +12,9 @@ import dev.ujhhgtg.wekit.utils.crash.JavaCrashHandler
 @Feature(name = "崩溃拦截", categories = ["调试"], description = "拦截 Java 层崩溃并记录详细信息, 支持查看和导出日志")
 object CrashInterceptor : SwitchFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "CrashInterceptor"
 
-    override fun startup() {
-        if (!TargetProcesses.isInMain) return
-        _isEnabled = WePrefs.getBoolOrDef(name, true)
-        if (_isEnabled) enable()
-    }
+    override val defaultEnabled = true
 
     override fun onEnable() {
         JavaCrashHandler.install()

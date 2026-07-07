@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Delete
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeContactApi
 import dev.ujhhgtg.wekit.features.api.core.WeContactLabelApi
@@ -55,7 +54,7 @@ object DetectDeletedFriends : ClickableFeature() {
 
     override val noSwitchWidget = true
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "DetectDeletedFriends"
 
     private enum class AbnormalFriendStatus(val displayName: String) {
         ThatAccountBanned("对方账号异常"),

@@ -22,7 +22,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -50,7 +49,7 @@ import kotlin.io.path.writeText
 )
 object CustomDetails : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "CustomDetails"
 
     private val PLACEHOLDERS = listOf(
         $$"$originalText",

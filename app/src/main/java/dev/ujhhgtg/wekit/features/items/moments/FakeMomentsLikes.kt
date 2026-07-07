@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.moments
 import android.content.ContentValues
 import com.tencent.mm.plugin.sns.ui.SnsCommentFooter
 import com.tencent.mm.protocal.protobuf.SnsObject
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
@@ -24,7 +23,7 @@ import java.util.LinkedList
 object FakeMomentsLikes : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider,
     WeDatabaseListenerApi.IUpdateListener {
 
-    private val TAG = nameOf(FakeMomentsLikes)
+    private const val TAG = "FakeMomentsLikes"
 
     // 存储每个朋友圈动态的伪点赞用户配置 (snsId -> Set<WxId>)
     private val fakeLikeWxIds = mutableMapOf<Long, Set<String>>()

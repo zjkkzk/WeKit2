@@ -11,7 +11,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.tencent.mars.xlog.Log
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -27,7 +26,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "重定向微信日志", categories = ["调试"], description = "将微信内部日志打印至模块日志")
 object RedirectHostLogs : ClickableFeature() {
 
-    private val TAG = nameOf(RedirectHostLogs)
+    private const val TAG = "RedirectHostLogs"
     private const val KEY_PREFIX = "redirect_"
 
     override fun onEnable() {

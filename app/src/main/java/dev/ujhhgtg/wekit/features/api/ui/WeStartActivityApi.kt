@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.ContextWrapper
 import android.content.Intent
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -18,7 +17,7 @@ object WeStartActivityApi : ApiFeature() {
         fun onStartActivity(param: XC_MethodHook.MethodHookParam, intent: Intent)
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeStartActivityApi"
 
     private val listeners = CopyOnWriteArrayList<IStartActivityListener>()
 

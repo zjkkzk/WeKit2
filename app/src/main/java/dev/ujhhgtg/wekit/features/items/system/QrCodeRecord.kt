@@ -40,7 +40,6 @@ import com.composables.icons.materialsymbols.outlined.Open_in_new
 import com.composables.icons.materialsymbols.outlined.Person
 import com.composables.icons.materialsymbols.outlined.Shopping_cart
 import com.tencent.mm.plugin.webview.ui.tools.WebViewUI
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -64,7 +63,7 @@ import org.luckypray.dexkit.DexKitBridge
 @Feature(name = "二维码扫描记录", categories = ["系统与隐私"], description = "记录扫描的二维码 URL")
 object QrCodeRecord : ClickableFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "QrCodeRecord"
 
     @Serializable
     data class QrRecord(val url: String, val time: Long)

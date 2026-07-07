@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.loader.startup
 import android.annotation.SuppressLint
 import android.app.Application
 import android.os.Build
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.utils.ReflectionClassLoader
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
@@ -19,7 +18,7 @@ import kotlin.io.path.deleteRecursively
 
 object StartupAgent {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "StartupAgent"
 
     private var initialized = false
 

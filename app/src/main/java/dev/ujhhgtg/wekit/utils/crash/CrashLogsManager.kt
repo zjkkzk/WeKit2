@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.utils.crash
 
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import java.io.IOException
@@ -212,7 +211,7 @@ object CrashLogsManager {
         }
     }
 
-    private val TAG = nameOf(CrashLogsManager::class)
+    private const val TAG = "CrashLogsManager"
 
     private const val CRASH_LOGS_DIR = "crashes"
     // Unified with the run-log naming style (logs/wekit-*.log): "wekit-crash-" prefix plus a

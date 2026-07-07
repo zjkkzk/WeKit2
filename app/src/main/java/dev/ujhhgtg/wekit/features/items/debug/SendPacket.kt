@@ -7,7 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -21,7 +20,7 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 
 @Feature(name = "发包调试", categories = ["调试"], description = "发送自定义数据包到微信服务器")
 object SendPacket : ClickableFeature() {
-    private val TAG = This.Class.simpleName
+    private const val TAG = "SendPacket"
 
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {

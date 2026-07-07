@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.tencent.mm.storage.emotion.EmojiGroupInfo
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
@@ -72,7 +71,7 @@ import kotlin.io.path.writeText
 )
 object StickersSync : ClickableFeature(), IResolveDex {
 
-    private val TAG = nameOf(StickersSync)
+    private const val TAG = "StickersSync"
     private const val STICKER_PACK_ID_PREFIX = "wekit.stickers.sync"
     private val ALLOWED_STICKER_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp")
 

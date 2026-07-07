@@ -21,8 +21,6 @@ import android.os.PersistableBundle
 import android.os.TestLooperManager
 import android.view.KeyEvent
 import android.view.MotionEvent
-import dev.ujhhgtg.comptime.This
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -37,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 object ActivityProxy {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ActivityProxy"
     private var initialized = false
 
     @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
@@ -284,7 +282,7 @@ object ActivityProxy {
                 resolvedIntent = it
                 resolvedClass = it.component!!.className
                 WeLogger.w(
-                    nameOf(ProxyInstrumentation::class),
+                    "ProxyInstrumentation",
                     "recovered intent in newActivity fallback: $resolvedClass"
                 )
             }

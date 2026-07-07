@@ -18,7 +18,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -55,7 +54,7 @@ import kotlin.time.Duration.Companion.milliseconds
 )
 object OpenHistoryRedPackets : ClickableFeature(), WeContactPrefsScreenApi.IContactInfoProvider, IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "OpenHistoryRedPackets"
     private const val PREF_KEY = "open_history_red_packets"
 
     // 微信红包超过 24 小时即过期, 扫描更早的消息没有意义

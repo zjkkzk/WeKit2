@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
 import androidx.core.graphics.withTranslation
 import com.tencent.mm.ui.widget.MMNeat7extView
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -64,7 +63,7 @@ import org.commonmark.node.Paragraph
 @Feature(name = "Markdown 渲染", categories = ["聊天"], description = "渲染 Markdown 消息")
 object MarkdownRendering : ClickableFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "MarkdownRendering"
 
     private const val KEY_USE_MARKWON = "use_markwon"
     private const val KEY_COMPACT_HTML = "compact_html"

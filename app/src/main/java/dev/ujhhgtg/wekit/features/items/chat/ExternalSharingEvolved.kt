@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import androidx.activity.ComponentActivity
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -22,7 +21,7 @@ import kotlin.time.Duration.Companion.seconds
 @Feature(name = "分享进化", categories = ["聊天"], description = "让微信的系统分享菜单更易用 (没写完)")
 object ExternalSharingEvolved : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ExternalSharingEvolved"
 
     override fun onEnable() {
         CoroutineScope(Dispatchers.Main).launch {

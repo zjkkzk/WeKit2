@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.ActivityThread
 import android.util.Log
 import androidx.annotation.Keep
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.loader.entry.common.ModuleLoader
 import java.io.File
 import java.lang.reflect.InvocationTargetException
@@ -14,7 +13,7 @@ import java.lang.reflect.Method
 @SuppressLint("PrivateApi")
 object FridaInjectEntry {
 
-    private val TAG = nameOf(FridaInjectEntry)
+    private const val TAG = "FridaInjectEntry"
 
     @JvmStatic
     fun entry3(modulePath: String, hostDataDir: String?, xblService: Map<String, Method>?) {

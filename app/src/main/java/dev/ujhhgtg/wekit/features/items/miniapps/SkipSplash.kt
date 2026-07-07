@@ -4,7 +4,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 
 @Feature(name = "跳过启动页面", categories = ["小程序"], description = "跳过小程序启动页面, 变相去广告 (实验性)")
@@ -25,11 +24,7 @@ object SkipSplash : SwitchFeature(), IResolveDex {
         }
     }
 
-    override fun startup() {
-        if (!TargetProcesses.isInMain && TargetProcesses.currentType != TargetProcesses.PROC_APPBRAND) return
-        _isEnabled = WePrefs.getBoolOrFalse(name)
-        if (_isEnabled) enable()
-    }
+    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
 
     override fun onEnable() {
         methodShowSplash.hookBefore { result = null }

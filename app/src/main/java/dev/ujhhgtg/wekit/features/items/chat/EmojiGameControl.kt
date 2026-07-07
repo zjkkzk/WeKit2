@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import com.tencent.mm.api.IEmojiInfo
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -68,7 +67,7 @@ object EmojiGameControl : ClickableFeature(), IResolveDex {
     private const val MD5_DICE = "08f223fa83f1ca34e143d1e580252c7c"
     private const val GRAVITY_EARTH = 9.81f
     private const val MOTION_THRESHOLD = 2.0f
-    private val TAG = This.Class.simpleName
+    private const val TAG = "EmojiGameControl"
 
     private val methodRandom by dexMethod {
         searchPackages("com.tencent.mm.sdk.platformtools")

@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
@@ -59,7 +58,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @Feature(name = "已读追踪", categories = ["聊天"], description = "追踪文本消息已读人数, 并在自己发送的消息上实时显示\"已读 x 人\"")
 object ReadReceipts : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ReadReceipts"
 
     // ── Preferences ─────────────────────────────────────────────────────────
     private var prefix by prefOption("read_receipts_prefix", "#")

@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -21,16 +20,18 @@ import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 @Feature(
     name = "批量免打扰",
     categories = ["批量操作"],
-    description = "选择多个好友或群聊后, 批量开启或关闭消息免打扰 (仅本地生效, 不同步至服务器)"
+    description = "选择多个好友或群聊后, 批量开启或关闭消息免打扰"
 )
 object BatchMuteConversations : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "BatchMuteConversations"
 
     override val noSwitchWidget = true
 
@@ -86,11 +87,12 @@ object BatchMuteConversations : ClickableFeature() {
     }
 
     private fun apply(wxIds: Set<String>, mute: Boolean) {
-        // Local DB writes only, so no rate-limit pacing is needed.
         CoroutineScope(Dispatchers.IO).launch {
+            showToastSuspend("正在对 ${wxIds.size} 设置免打扰...")
             wxIds.forEach { wxId ->
-                runCatching { WeConversationApi.setIfNotifyNewMessages(wxId, !mute) }
+                runCatching { WeConversationApi.setDoNotDisturb(wxId, mute) }
                     .onFailure { WeLogger.e(TAG, "failed to set mute=$mute for $wxId", it) }
+                delay(100.milliseconds)
             }
             WeConversationApi.reloadConversations()
             showToastSuspend(

@@ -37,7 +37,6 @@ import com.composables.icons.materialsymbols.outlined.Send_time_extension
 import com.composables.icons.materialsymbols.outlined.Text_to_speech
 import com.composables.icons.materialsymbols.outlined.Voice_chat
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -481,7 +480,7 @@ private fun synthesizeAndSendVoice(
         val silkPath = KnownPaths.moduleCache / "tts_conv_tmp"
         try {
             EdgeTtsClient.synthesizeToMp3(text, mp3Path, voice = voice).onFailure {
-                WeLogger.d(nameOf(ChatInputBarEnhancements), "failed to synthesize voice", it)
+                WeLogger.d("ChatInputBarEnhancements", "failed to synthesize voice", it)
                 showToastSuspend("语音合成失败! 错因: ${it.message}")
                 return@launch
             }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,6 +75,7 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
 import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.ui.content.MiuixSmallTitle
 import dev.ujhhgtg.wekit.ui.utils.GitHubIcon
 import dev.ujhhgtg.wekit.ui.utils.TelegramIcon
 import dev.ujhhgtg.wekit.ui.utils.theme.AppColorSpec
@@ -131,21 +131,6 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 // ---------------------------------------------------------------------------
 
 @Composable
-fun SmallTitle(
-    text: String,
-    modifier: Modifier = Modifier,
-    textColor: Color = MiuixTheme.colorScheme.onBackgroundVariant,
-    insideMargin: PaddingValues = PaddingValues(14.dp, 8.dp)
-) {
-    Text(
-        modifier = modifier.padding(insideMargin),
-        text = text,
-        style = MiuixTheme.textStyles.subtitle,
-        color = textColor,
-    )
-}
-
-@Composable
 fun SettingsPager(onOpenLicense: () -> Unit) {
     val context = LocalComponentActivity.current
 
@@ -160,7 +145,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
     MiuixListScaffold(title = "设置") {
         // 界面
         item {
-            SmallTitle(text = "界面", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = "界面", modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 ThemeSection()
             }
@@ -168,7 +153,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 调试
         item {
-            SmallTitle(text = "调试", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = "调试", modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefSwitch(
                     key = Preferences.VERBOSE_LOG,
@@ -193,7 +178,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 兼容
         item {
-            SmallTitle(text = "兼容", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = "兼容", modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefSwitch(
                     key = Preferences.NO_DEX_RESOLVE,
@@ -218,7 +203,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 配置
         item {
-            SmallTitle(text = "配置", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = "配置", modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefArrow(
                     title = "导出配置",
@@ -243,7 +228,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 更新
         item {
-            SmallTitle(text = "更新", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = "更新", modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefArrow(
                     title = "检查更新",
@@ -261,7 +246,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
 
         // 关于
         item {
-            SmallTitle(text = "关于", modifier = Modifier.padding(top = 12.dp))
+            MiuixSmallTitle(text = "关于", modifier = Modifier.padding(top = 12.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 PrefArrow(title = "版本", summary = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", icon = MaterialSymbols.Outlined.Label)
                 PrefArrow(title = "构建提交时间", summary = formatEpoch(BuildConfig.BUILD_TIMESTAMP, true), icon = MaterialSymbols.Outlined.Build_circle)
@@ -811,7 +796,7 @@ fun LicenseScreen(onBack: () -> Unit) {
         }
 
         item {
-            SmallTitle(
+            MiuixSmallTitle(
                 text = if (query.isBlank()) "${libraries.size} 个库" else "${filtered.size}/${libraries.size} 个库",
                 modifier = Modifier.padding(top = 6.dp),
             )

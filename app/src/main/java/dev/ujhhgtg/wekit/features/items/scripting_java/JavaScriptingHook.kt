@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.scripting_java
 import android.content.ContentValues
 import bsh.Interpreter
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -35,7 +34,7 @@ import kotlin.io.path.readText
 @Feature(name = "脚本引擎 (Java)", categories = ["脚本 (Java)"], description = "执行 Java 脚本")
 object JavaScriptingHook : SwitchFeature(), IResolveDex, WeDatabaseListenerApi.IUpdateListener, WeDatabaseListenerApi.IInsertListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "JavaScriptingHook"
 
     private val SCRIPTS_DIR = (KnownPaths.moduleData / "scripts_java").createDirsSafe()
 

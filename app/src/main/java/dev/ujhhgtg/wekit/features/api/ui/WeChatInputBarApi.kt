@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.api.ui
 import android.text.Editable
 import android.text.TextWatcher
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -37,7 +36,7 @@ object WeChatInputBarApi : ApiFeature() {
         fun onTextChanged(chatFooter: ChatFooter, text: String)
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeChatInputBarApi"
 
     private val listeners = CopyOnWriteArrayList<IInputBarListener>()
     private val hookedFooters = Collections.newSetFromMap(WeakHashMap<ChatFooter, Boolean>())

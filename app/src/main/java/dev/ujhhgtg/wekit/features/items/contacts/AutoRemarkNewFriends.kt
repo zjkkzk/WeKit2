@@ -23,7 +23,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -44,7 +43,7 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 )
 object AutoRemarkNewFriends : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "AutoRemarkNewFriends"
 
     private const val DEFAULT_TEXT_FORMAT = $$"$nickname ($time)"
     private const val DEFAULT_TIME_FORMAT = "yyyy-MM-dd"

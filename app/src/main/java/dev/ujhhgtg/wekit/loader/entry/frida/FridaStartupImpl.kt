@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.loader.entry.frida
 
 import android.util.Log
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.BuildConfig
 import dev.ujhhgtg.wekit.loader.abc.IClassLoaderHelper
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
@@ -35,7 +34,7 @@ object FridaStartupImpl : ILoaderService {
         get() {
             val m = mXblService?.get("GetEntryPointName")
             if (m != null) return unsafeInvokeXblService(m) as String
-            return nameOf(FridaInjectEntry)
+            return "FridaInjectEntry"
         }
 
     override val loaderVersionName: String

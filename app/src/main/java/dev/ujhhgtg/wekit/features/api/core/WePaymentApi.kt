@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.core
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
@@ -11,7 +10,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "支付服务", categories = ["API"], description = "提供转账确认与退还能力")
 object WePaymentApi : ApiFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WePaymentApi"
 
     private val ctorNetSceneTransferOperation by dexConstructor {
         searchPackages("com.tencent.mm.plugin.remittance.model")

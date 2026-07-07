@@ -16,7 +16,6 @@ import com.tencent.mm.plugin.setting.ui.setting_new.settings.SettingGroupPersona
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.ui.LauncherUI
 import com.tencent.mm.ui.base.preference.IconPreference
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.toClassOrNull
@@ -151,7 +150,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
 //        }
 //    }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeSettingsInjector"
 
     private const val PREFS_KEY = "wekit_settings_entry"
     private const val PREFS_TITLE = "${BuildConfig.TAG} 设置"
@@ -227,14 +226,20 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     }
 
     override fun onEnable() {
-        hookLauncherUi()
+        runCatching {
+            hookLauncherUi()
+        }.onFailure { WeLogger.w(TAG, "failed to hook LauncherUI") }
 
         WeChatInputBarApi.addListener(this)
 
-        injectLegacy()
+        runCatching {
+            injectLegacy()
+        }.onFailure { WeLogger.w(TAG, "failed to hook legacy settings") }
 
         // injectModernMethod1()
-        injectModernMethod2()
+        runCatching {
+            injectModernMethod2()
+        }.onFailure { WeLogger.w(TAG, "failed to hook modern settings") }
         // injectModernMethod3()
     }
 
@@ -548,7 +553,7 @@ object WeSettingsInjector : ApiFeature(), IResolveDex, WeChatInputBarApi.IInputB
     }
 
     @Suppress("NOTHING_TO_INLINE")
-    inline fun openSettingsDialog(context: Context) {
+    fun openSettingsDialog(context: Context) {
         context.startActivity(Intent(context, SettingsActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })

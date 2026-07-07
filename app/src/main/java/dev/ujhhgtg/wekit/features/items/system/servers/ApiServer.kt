@@ -73,6 +73,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import java.io.File
@@ -246,6 +247,9 @@ object ApiServer : ClickableFeature() {
     @Serializable
     data class DisplayNameResponse(val displayName: String)
 
+    @Serializable
+    data class PathResponse(val path: String)
+
     // -------------------------------------------------------------------------
     // Shared adapters: Result → protocol-specific output
     // -------------------------------------------------------------------------
@@ -364,6 +368,102 @@ object ApiServer : ClickableFeature() {
             WeChatService.listMessages(convId, pageIndex, pageSize).toCallToolResult { messages ->
                 CallToolResult(messages.map { TextContent("${it.sender}: '${it.content}'") })
             }
+        }
+
+        addTool(
+            name = "cache-image",
+            description = "Cache an image message into WeChat's own storage by its server ID (equivalent to tapping the image to download from CDN); " +
+                    "does NOT decode or copy it to Download/WeKit/; returns the internal WeChat image path. May take a while if not cached yet.",
+            inputSchema = ToolSchema(
+                properties = buildJsonObject {
+                    addField("msg-svr-id", "Server ID (msgSvrId) of the image message to cache", "integer")
+                },
+                required = listOf("msg-svr-id")
+            )
+        ) { req ->
+            val msgSvrId = req.arguments?.get("msg-svr-id")?.jsonPrimitive?.longOrNull
+                ?: return@addTool textRes("Invalid msg-svr-id", true)
+            WeChatService.cacheImage(msgSvrId).toCallToolResult { textRes(it) }
+        }
+
+        addTool(
+            name = "download-image",
+            description = "Download the image of an image message by its server ID: cache it from CDN if needed, then decode and save it to Download/WeKit/; " +
+                    "returns the saved local file path. May take a while if not cached yet.",
+            inputSchema = ToolSchema(
+                properties = buildJsonObject {
+                    addField("msg-svr-id", "Server ID (msgSvrId) of the image message to download", "integer")
+                },
+                required = listOf("msg-svr-id")
+            )
+        ) { req ->
+            val msgSvrId = req.arguments?.get("msg-svr-id")?.jsonPrimitive?.longOrNull
+                ?: return@addTool textRes("Invalid msg-svr-id", true)
+            WeChatService.downloadImage(msgSvrId).toCallToolResult { textRes(it) }
+        }
+
+        addTool(
+            name = "download-sticker",
+            description = "Decode the sticker of a sticker message by its server ID, convert it to a GIF and save it to Download/WeKit/; " +
+                    "returns the saved local file path",
+            inputSchema = ToolSchema(
+                properties = buildJsonObject {
+                    addField("msg-svr-id", "Server ID (msgSvrId) of the sticker message to download", "integer")
+                },
+                required = listOf("msg-svr-id")
+            )
+        ) { req ->
+            val msgSvrId = req.arguments?.get("msg-svr-id")?.jsonPrimitive?.longOrNull
+                ?: return@addTool textRes("Invalid msg-svr-id", true)
+            WeChatService.downloadSticker(msgSvrId).toCallToolResult { textRes(it) }
+        }
+
+        addTool(
+            name = "download-voice",
+            description = "Decode the voice of a voice message by its server ID (silk → mp3) and save it to Download/WeKit/; " +
+                    "returns the saved local mp3 file path",
+            inputSchema = ToolSchema(
+                properties = buildJsonObject {
+                    addField("msg-svr-id", "Server ID (msgSvrId) of the voice message to download", "integer")
+                },
+                required = listOf("msg-svr-id")
+            )
+        ) { req ->
+            val msgSvrId = req.arguments?.get("msg-svr-id")?.jsonPrimitive?.longOrNull
+                ?: return@addTool textRes("Invalid msg-svr-id", true)
+            WeChatService.downloadVoice(msgSvrId).toCallToolResult { textRes(it) }
+        }
+
+        addTool(
+            name = "cache-file",
+            description = "Cache a file message into WeChat's own storage by its server ID (equivalent to tapping the file bubble to download); " +
+                    "does NOT copy it to Download/WeKit/; returns the internal WeChat file path. May take a while for large files.",
+            inputSchema = ToolSchema(
+                properties = buildJsonObject {
+                    addField("msg-svr-id", "Server ID (msgSvrId) of the file message to cache", "integer")
+                },
+                required = listOf("msg-svr-id")
+            )
+        ) { req ->
+            val msgSvrId = req.arguments?.get("msg-svr-id")?.jsonPrimitive?.longOrNull
+                ?: return@addTool textRes("Invalid msg-svr-id", true)
+            WeChatService.cacheFile(msgSvrId).toCallToolResult { textRes(it) }
+        }
+
+        addTool(
+            name = "download-file",
+            description = "Download a file message by its server ID: first cache it into WeChat's storage if needed, then copy it to Download/WeKit/; " +
+                    "returns the saved local file path. May take a while for large files.",
+            inputSchema = ToolSchema(
+                properties = buildJsonObject {
+                    addField("msg-svr-id", "Server ID (msgSvrId) of the file message to download", "integer")
+                },
+                required = listOf("msg-svr-id")
+            )
+        ) { req ->
+            val msgSvrId = req.arguments?.get("msg-svr-id")?.jsonPrimitive?.longOrNull
+                ?: return@addTool textRes("Invalid msg-svr-id", true)
+            WeChatService.downloadFile(msgSvrId).toCallToolResult { textRes(it) }
         }
 
         addTool(
@@ -1831,6 +1931,60 @@ object ApiServer : ClickableFeature() {
                     call.respondResult(WeChatService.listMessages(convId, pageIndex, pageSize)) { messages ->
                         respond(HttpStatusCode.OK, messages)
                     }
+                }
+            }
+
+            // POST /api/messages/{msgSvrId}/image/cache — cache into WeChat's own storage only
+            post("messages/{msgSvrId}/image/cache") {
+                val msgSvrId = call.parameters["msgSvrId"]?.toLongOrNull()
+                    ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid msgSvrId"))
+                call.respondResult(WeChatService.cacheImage(msgSvrId)) { path ->
+                    respond(HttpStatusCode.OK, PathResponse(path))
+                }
+            }
+
+            // GET /api/messages/{msgSvrId}/image — cache if needed, then decode & save to Download/WeKit/
+            get("messages/{msgSvrId}/image") {
+                val msgSvrId = call.parameters["msgSvrId"]?.toLongOrNull()
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid msgSvrId"))
+                call.respondResult(WeChatService.downloadImage(msgSvrId)) { path ->
+                    respond(HttpStatusCode.OK, PathResponse(path))
+                }
+            }
+
+            // GET /api/messages/{msgSvrId}/sticker
+            get("messages/{msgSvrId}/sticker") {
+                val msgSvrId = call.parameters["msgSvrId"]?.toLongOrNull()
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid msgSvrId"))
+                call.respondResult(WeChatService.downloadSticker(msgSvrId)) { path ->
+                    respond(HttpStatusCode.OK, PathResponse(path))
+                }
+            }
+
+            // GET /api/messages/{msgSvrId}/voice
+            get("messages/{msgSvrId}/voice") {
+                val msgSvrId = call.parameters["msgSvrId"]?.toLongOrNull()
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid msgSvrId"))
+                call.respondResult(WeChatService.downloadVoice(msgSvrId)) { path ->
+                    respond(HttpStatusCode.OK, PathResponse(path))
+                }
+            }
+
+            // POST /api/messages/{msgSvrId}/file/cache — cache into WeChat's own storage only
+            post("messages/{msgSvrId}/file/cache") {
+                val msgSvrId = call.parameters["msgSvrId"]?.toLongOrNull()
+                    ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid msgSvrId"))
+                call.respondResult(WeChatService.cacheFile(msgSvrId)) { path ->
+                    respond(HttpStatusCode.OK, PathResponse(path))
+                }
+            }
+
+            // GET /api/messages/{msgSvrId}/file — cache if needed, then copy to Download/WeKit/
+            get("messages/{msgSvrId}/file") {
+                val msgSvrId = call.parameters["msgSvrId"]?.toLongOrNull()
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid msgSvrId"))
+                call.respondResult(WeChatService.downloadFile(msgSvrId)) { path ->
+                    respond(HttpStatusCode.OK, PathResponse(path))
                 }
             }
 

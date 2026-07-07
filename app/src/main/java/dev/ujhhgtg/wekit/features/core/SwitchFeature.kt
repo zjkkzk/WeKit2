@@ -1,19 +1,30 @@
 package dev.ujhhgtg.wekit.features.core
 
 import android.content.Context
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 abstract class SwitchFeature : BaseFeature() {
 
-    override fun startup() {
-        if (!TargetProcesses.isInMain) return
-        _isEnabled = WePrefs.getBoolOrFalse(name)
-        if (_isEnabled) enable()
+    /** Default state when the user has never toggled this feature. */
+    protected open val defaultEnabled: Boolean = false
+
+    /** Whether this feature should load in the current process. Defaults to the main process only. */
+    protected open val shouldLoadInCurrentProcess: Boolean
+        get() = TargetProcesses.isInMain
+
+    /** Whether the feature should be active at startup, given the cached preference. */
+    protected open val shouldEnableOnStartup: Boolean
+        get() = _isEnabled
+
+    final override fun startup() {
+        if (!shouldLoadInCurrentProcess) return
+        _isEnabled = WePrefs.getBoolOrDef(name, defaultEnabled)
+        if (shouldEnableOnStartup) enable()
     }
 
+    /** Cached user preference (desired state). Distinct from [isActive], the runtime truth. */
     @Suppress("PropertyName")
     protected var _isEnabled = false
 
@@ -22,20 +33,15 @@ abstract class SwitchFeature : BaseFeature() {
         set(value) {
             if (_isEnabled == value) return
             _isEnabled = value
-            if (!value) {
-                if (isLoaded) {
-                    WeLogger.i(nameOf(SwitchFeature::class), "disabling $displayName...")
-                    disable()
-                    isLoaded = false
-                }
-            } else {
-                WeLogger.i(nameOf(SwitchFeature::class), "enabling $displayName...")
+            if (value) {
+                WeLogger.i("SwitchFeature", "enabling $displayName...")
                 enable()
-                isLoaded = true
+            } else {
+                WeLogger.i("SwitchFeature", "disabling $displayName...")
+                disable()
             }
         }
 
-    private var isLoaded: Boolean = false
     private var toggleCompletionCallback: Runnable? = null
 
     open fun onBeforeToggle(newState: Boolean, context: Context): Boolean = true

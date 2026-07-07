@@ -1,12 +1,11 @@
 package dev.ujhhgtg.wekit.utils
 
 import android.content.Context
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.PackageNames
 
 object SignatureVerifier {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "SignatureVerifier"
 
     private external fun nativeVerify(context: Context, packageName: String): Boolean
 

@@ -6,7 +6,6 @@ import android.content.pm.ApplicationInfo
 import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -24,7 +23,7 @@ object PredictiveBackGestures : ClickableFeature() {
     private const val PRIVATE_FLAG_DISABLE_ON_BACK_INVOKED_CALLBACK = 1 shl 3
     private const val PRIVATE_FLAG_EXT_ENABLE_ON_BACK_INVOKED_CALLBACK = 1 shl 3
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "PredictiveBackGestures"
 
     /**
      * ## 背景

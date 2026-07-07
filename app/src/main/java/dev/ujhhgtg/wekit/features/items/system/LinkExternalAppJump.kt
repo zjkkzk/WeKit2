@@ -36,7 +36,6 @@ import com.composables.icons.materialsymbols.outlined.Language
 import com.composables.icons.materialsymbols.outlined.Open_in_new
 import com.tencent.mm.ui.LauncherUI
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -52,7 +51,7 @@ import dev.ujhhgtg.wekit.utils.openInSystem
 object LinkExternalAppJump : SwitchFeature(),
     WeStartActivityApi.IStartActivityListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "LinkExternalAppJump"
 
     private val WECHAT_INTERNAL_HOSTS = setOf(
         "weixin.com",

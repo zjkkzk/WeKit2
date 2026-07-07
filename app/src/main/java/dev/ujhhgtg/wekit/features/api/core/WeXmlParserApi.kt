@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.api.core
 
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
@@ -12,7 +11,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 @Feature(name = "XML 解析钩子服务", categories = ["API"], description = "提供篡改 XML 解析流程的能力")
 object WeXmlParserApi : ApiFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeXmlParserApi"
 
     fun interface IAfterParseListener {
         fun onParse(param: XC_MethodHook.MethodHookParam, result: MutableMap<String, Any?>)

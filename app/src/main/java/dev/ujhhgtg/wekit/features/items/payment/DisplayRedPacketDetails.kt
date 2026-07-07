@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.payment
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -24,7 +23,7 @@ import java.time.format.DateTimeFormatter
 @Feature(name = "红包页面详情", categories = ["红包与支付"], description = "红包领取页面显示更加详细的领取情况")
 object DisplayRedPacketDetails : SwitchFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "DisplayRedPacketDetails"
 
     private val methodOnBindListView by dexMethod {
         matcher {

@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import dev.ujhhgtg.wekit.features.api.ui.WeConversationContextMenuApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.features.items.chat.AggregateChats.FolderChoice
+import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.FolderChoice
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -84,7 +84,7 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
                 drawable = FolderAddIcon,
                 shouldShow = { context, _ ->
                     val talker = context.talker
-                    talker.isNotEmpty() && !AggregateChats.isAggregationFolderId(talker)
+                    talker.isNotEmpty() && !ConversationAggregation.isAggregationFolderId(talker)
                 },
             ) { context ->
                 onMenuClick(context.activity, context.talker)
@@ -93,12 +93,12 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
     }
 
     private fun onMenuClick(context: Context, talker: String) {
-        if (!AggregateChats.isEnabled) {
+        if (!ConversationAggregation.isEnabled) {
             showToast(context, "请先启用「对话归拢」!")
             return
         }
 
-        val folders = AggregateChats.aggregationFolders()
+        val folders = ConversationAggregation.aggregationFolders()
         if (folders.isEmpty()) {
             showToast(context, "暂无文件夹, 请先在「对话归拢」中新建一个")
             return
@@ -137,13 +137,13 @@ object AddToAggregationFolder : ClickableFeature(), WeConversationContextMenuApi
     }
 
     private fun addToFolder(context: Context, folder: FolderChoice, talker: String) {
-        if (!AggregateChats.addToFolder(folder.id, talker)) {
+        if (!ConversationAggregation.addToFolder(folder.id, talker)) {
             showToast(context, "「${folder.name}」无法手动添加对话")
             return
         }
         showToast(context, "已加入「${folder.name}」")
         if (showConfigDialog) {
-            AggregateChats.showAddToFolderDialog(context, folder.id, talker)
+            ConversationAggregation.showAddToFolderDialog(context, folder.id, talker)
         }
     }
 

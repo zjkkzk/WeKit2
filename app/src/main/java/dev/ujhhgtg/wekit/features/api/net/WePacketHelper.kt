@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import com.tencent.mm.network.v0
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isBuiltin
@@ -217,7 +216,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
         SendPatSigner { classNetScenePat.clazz }
     )
 
-    private val TAG = nameOf(WePacketHelper)
+    private const val TAG = "WePacketHelper"
 
     override fun onEnable() {
         // 映射业务请求类
@@ -572,7 +571,7 @@ object WePacketHelper : ApiFeature(), IResolveDex {
                                 bytes = protoObj.reflekt().firstMethod { name ="toByteArray"; superclass() }.invoke() as? ByteArray
                             }
                         } catch (e: Throwable) {
-                            WeLogger.w(nameOf(NativeResponseHandler::class), "failed to extract response bytes", e)
+                            WeLogger.w("NativeResponseHandler", "failed to extract response bytes", e)
                         }
 
                         userCallback?.onSuccess(bytes)

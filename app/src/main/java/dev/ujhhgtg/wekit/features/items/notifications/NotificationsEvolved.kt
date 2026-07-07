@@ -13,7 +13,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import androidx.core.content.ContextCompat
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -24,7 +23,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.TargetProcesses
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -53,7 +51,7 @@ import kotlin.time.Duration.Companion.milliseconds
 )
 object NotificationsEvolved : SwitchFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "NotificationsEvolved"
 
     // com.tencent.mm.booter.notification.x.d(x, String talker, String content, int, int, boolean)
     // args[1] is the talker wxid. Anchored on a log string unique to that method.
@@ -68,11 +66,7 @@ object NotificationsEvolved : SwitchFeature(), IResolveDex {
     // talker wxid captured from x.d, read back in the synchronous Notification.Builder.build() hook
     private val currentTalker = ThreadLocal<String?>()
 
-    override fun startup() {
-        if (!TargetProcesses.isInMain && TargetProcesses.currentType != TargetProcesses.PROC_PUSH) return
-        _isEnabled = WePrefs.getBoolOrFalse(name)
-        if (_isEnabled) enable()
-    }
+    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_PUSH
 
     private val lastGroupChatSender = LruCache<String, String>()
 

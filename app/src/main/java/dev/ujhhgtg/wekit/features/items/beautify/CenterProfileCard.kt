@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isVisible
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeApi
@@ -59,7 +58,7 @@ import dev.ujhhgtg.wekit.utils.android.isDarkMode
 )
 object CenterProfileCard : ClickableFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "CenterProfileCard"
     private const val CENTER_CARD_TAG = "wekit_account_info_center_card"
 
     private const val DEFAULT_AVATAR_TOP_MARGIN_DP = 40

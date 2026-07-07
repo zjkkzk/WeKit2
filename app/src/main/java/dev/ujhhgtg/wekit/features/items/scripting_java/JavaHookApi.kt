@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.scripting_java
 
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -16,7 +15,7 @@ import java.util.function.Function
 @Feature(name = "脚本 Hook 服务", categories = ["API"], description = "提供 BeanShell 脚本可用的 Xposed Hook 能力")
 object JavaHookApi : ApiFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "JavaHookApi"
 
     private val hooks = mutableListOf<HookHandle>()
 

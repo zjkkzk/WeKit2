@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.utils
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Process
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.android.getSystemService
 
 object TargetProcesses {
@@ -49,7 +48,7 @@ object TargetProcesses {
 
                 val name = am.runningAppProcesses?.find { it?.pid == myPid }?.processName
                 if (name != null) return@lazy name
-            }.onFailure { WeLogger.e(nameOf(TargetProcesses), "failed to get current process name", it) }
+            }.onFailure { WeLogger.e("TargetProcesses", "failed to get current process name", it) }
             retry++
         } while (retry < 3)
         "unknown"

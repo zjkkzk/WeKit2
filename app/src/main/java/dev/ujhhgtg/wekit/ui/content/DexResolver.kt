@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
 import dev.ujhhgtg.wekit.features.core.BaseFeature
@@ -68,7 +67,7 @@ private sealed class DialogPhase {
     data class Error(val message: String) : DialogPhase()
 }
 
-private val TAG = nameOf(::DexResolver)
+private val TAG = "DexResolver"
 
 @Composable
 fun DexResolver(

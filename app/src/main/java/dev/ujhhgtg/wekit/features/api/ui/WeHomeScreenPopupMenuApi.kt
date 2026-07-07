@@ -7,7 +7,6 @@ import android.widget.ImageView
 import androidx.collection.mutableIntObjectMapOf
 import androidx.core.util.size
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
@@ -48,7 +47,7 @@ object WeHomeScreenPopupMenuApi : ApiFeature(), IResolveDex {
         providers.remove(provider)
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeHomeScreenPopupMenuApi"
 
     private val fakeResIdToResMap = mutableIntObjectMapOf<Drawable>()
 

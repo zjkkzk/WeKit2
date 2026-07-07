@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.core
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -16,7 +15,7 @@ import java.util.LinkedList
 @Feature(name = "授权与登录服务", categories = ["API"], description = "提供微信网页/小程序的授权登录能力")
 object WeAuthApi : ApiFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeAuthApi"
 
     val classNetSceneJSLogin by dexClass {
         matcher {

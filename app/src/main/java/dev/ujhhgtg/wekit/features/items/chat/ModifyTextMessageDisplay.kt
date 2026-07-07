@@ -6,6 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -33,6 +35,7 @@ object ModifyTextMessageDisplay : SwitchFeature(),
                 777002,
                 "修改内容",
                 EditIcon,
+                MaterialSymbols.Outlined.Edit,
                 { msgInfo -> msgInfo.type?.isText ?: false }
             ) { view, _, _ ->
                 showComposeDialog(view.context) {

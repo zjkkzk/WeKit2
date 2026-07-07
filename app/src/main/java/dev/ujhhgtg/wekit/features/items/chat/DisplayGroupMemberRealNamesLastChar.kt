@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.core.graphics.toColorInt
 import androidx.core.view.isGone
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
 import dev.ujhhgtg.wekit.features.api.net.models.protobuf.BeforeTransferProto
@@ -61,7 +60,7 @@ import kotlin.io.path.writeText
 )
 object DisplayGroupMemberRealNamesLastChar : ClickableFeature(), WeChatMessageViewApi.ICreateViewListener, IContactInfoProvider {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "DisplayGroupMemberRealNamesLastChar"
 
     private const val DEFAULT_FG = "#FF9E9E9E"
     private var annotationFg by WePrefs.prefOption("real_name_last_char_fg", DEFAULT_FG)

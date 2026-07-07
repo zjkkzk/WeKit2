@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.voip
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -14,7 +13,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "音视频通话使用画中画", categories = ["聊天", "音视频通话"], description = "让微信的音视频通话使用原生的画中画模式而非悬浮窗 (没写完)")
 object PipVoip : SwitchFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "PipVoip"
 
 //    private val stubActivityProxyClass by lazy {
 //        Proxy.getProxyClass(

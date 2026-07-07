@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.scripting_js
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONObject
 import org.mozilla.javascript.Context
@@ -10,7 +9,7 @@ import org.mozilla.javascript.ScriptableObject
 
 object JsEngine {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "JsEngine"
 
     fun executeAllOnLoad(scripts: Map<String, String>) {
         for (script in scripts) {

@@ -13,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.WeXmlParserApi
@@ -33,7 +32,7 @@ import dev.ujhhgtg.wekit.utils.formatEpoch
 @Feature(name = "防撤回", categories = ["聊天"], description = "阻止撤回消息")
 object AntiMessageRecall : ClickableFeature(), WeXmlParserApi.IAfterParseListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "AntiMessageRecall"
 
     private var recallOutgoing by prefOption("recall_outgoing", false)
     private var pattern by prefOption("recall_pattern", $$"「$sender」尝试撤回上一条消息 (已阻止)")

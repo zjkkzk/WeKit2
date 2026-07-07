@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.scripting_js
 
 import android.content.ContentValues
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
@@ -20,7 +19,7 @@ import kotlin.io.path.readText
 object JsScriptingHook : SwitchFeature(),
     WeDatabaseListenerApi.IInsertListener, IWePacketInterceptor {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "JsScriptingHook"
 
     private val SCRIPTS_DIR = (KnownPaths.moduleData / "scripts_js").createDirsSafe()
 

@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.loader.startup
 import android.content.Context
 import android.content.res.Resources
 import com.tencent.mm.boot.BuildConfig
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
@@ -71,5 +70,5 @@ object WeLauncher {
         }.onFailure { WeLogger.e(TAG, "failed to load hooks", it) }
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeLauncher"
 }

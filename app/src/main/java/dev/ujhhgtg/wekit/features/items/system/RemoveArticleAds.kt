@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.system
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.net.WePacketManager
 import dev.ujhhgtg.wekit.features.api.net.WeProtoData
 import dev.ujhhgtg.wekit.features.api.net.abc.IWePacketInterceptor
@@ -13,7 +12,7 @@ import org.json.JSONObject
 @Feature(name = "去除文章广告", categories = ["系统与隐私"], description = "清除文章中的广告数据")
 object RemoveArticleAds : SwitchFeature(), IWePacketInterceptor {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "RemoveArticleAds"
 
     override fun onEnable() {
         WePacketManager.addInterceptor(this)

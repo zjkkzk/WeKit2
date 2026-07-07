@@ -5,7 +5,6 @@ import android.database.Cursor
 import com.tencent.wcdb.DatabaseErrorHandler
 import com.tencent.wcdb.database.SQLiteCipherSpec
 import com.tencent.wcdb.database.SQLiteDatabase
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -73,7 +72,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
 
     val isReady: Boolean get() = ::db.isInitialized
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeDatabaseApi"
 
     val coreStorage by lazy {
         classMmKernel.reflekt()

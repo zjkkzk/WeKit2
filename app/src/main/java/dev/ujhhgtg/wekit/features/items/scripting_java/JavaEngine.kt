@@ -8,7 +8,6 @@ import bsh.BshMethod
 import bsh.NameSpace
 import dalvik.system.InMemoryDexClassLoader
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
@@ -42,7 +41,6 @@ import dev.ujhhgtg.wekit.utils.reflection.DexKit
 import dev.ujhhgtg.wekit.utils.reflection.asClass
 import dev.ujhhgtg.wekit.utils.reflection.asConstructor
 import dev.ujhhgtg.wekit.utils.reflection.asMethod
-import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.float
 import dev.ujhhgtg.wekit.utils.reflection.int
 import dev.ujhhgtg.wekit.utils.reflection.long
@@ -69,7 +67,7 @@ import kotlin.io.path.nameWithoutExtension
 
 object JavaEngine {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "JavaEngine"
     private const val WA_MODULE_VER = 1418
     private const val WA_API = 127
 
@@ -1466,19 +1464,9 @@ object JavaEngine {
                 val obj = it[0]
                 val fieldName = it[1] as String
                 return@BshMethod if (obj is Class<*>) {
-                    obj.reflekt().getField(fieldName)
+                    obj.reflekt().getField(fieldName, true)
                 } else {
-                    obj.reflekt().getField(fieldName)
-                }
-            })
-            setMethod(BshMethod("getField", arrayOf(Any::class.java, BString, bool)) {
-                val obj = it[0]
-                val fieldName = it[1] as String
-                val superclass = it[2] as Boolean
-                return@BshMethod if (obj is Class<*>) {
-                    obj.reflekt().getField(fieldName, superclass)
-                } else {
-                    obj.reflekt().getField(fieldName, superclass)
+                    obj.reflekt().getField(fieldName, true)
                 }
             })
             setMethod(BshMethod("setField", arrayOf(Any::class.java, BString, Any::class.java)) {
@@ -1486,9 +1474,9 @@ object JavaEngine {
                 val fieldName = it[1] as String
                 val value = it[2]
                 if (obj is Class<*>) {
-                    obj.reflekt().setField(fieldName, value)
+                    obj.reflekt().setField(fieldName, value, superclass = true)
                 } else {
-                    obj.reflekt().setField(fieldName, value)
+                    obj.reflekt().setField(fieldName, value, superclass = true)
                 }
                 return@BshMethod null
             })
@@ -1498,7 +1486,7 @@ object JavaEngine {
                 val instance = it[0]
                 val methodName = it[1] as String
                 val clazz = instance as? Class<*> ?: instance.javaClass
-                val method = clazz.reflekt().firstMethod { name = methodName; parameterCount = 0 }.self
+                val method = clazz.reflekt().firstMethod { name = methodName; parameterCount = 0; superclass() }.self
                 method.isAccessible = true
                 val target = if (instance is Class<*>) null else instance
                 return@BshMethod method.invoke(target)
@@ -1508,7 +1496,7 @@ object JavaEngine {
                 val methodName = it[1] as String
                 val params = it[2] as Array<*>
                 val clazz = instance as? Class<*> ?: instance.javaClass
-                val method = clazz.reflekt().firstMethod { name = methodName; parameterCount = params.size }.self
+                val method = clazz.reflekt().firstMethod { name = methodName; parameterCount = params.size; superclass() }.self
                 method.isAccessible = true
                 val target = if (instance is Class<*>) null else instance
                 return@BshMethod method.invoke(target, *params)
@@ -1518,7 +1506,7 @@ object JavaEngine {
                 val methodName = it[1] as String
                 val paramCount = it[2] as Int
                 val clazz = instance as? Class<*> ?: instance.javaClass
-                val method = clazz.reflekt().firstMethod { name = methodName; parameterCount = paramCount }.self
+                val method = clazz.reflekt().firstMethod { name = methodName; parameterCount = paramCount; superclass() }.self
                 method.isAccessible = true
                 val target = if (instance is Class<*>) null else instance
                 return@BshMethod method.invoke(target)
@@ -1529,7 +1517,7 @@ object JavaEngine {
                 val paramCount = it[2] as Int
                 val params = it[3] as Array<*>
                 val clazz = instance as? Class<*> ?: instance.javaClass
-                val method = clazz.reflekt().firstMethod { name = methodName; parameterCount = paramCount }.self
+                val method = clazz.reflekt().firstMethod { name = methodName; parameterCount = paramCount; superclass() }.self
                 method.isAccessible = true
                 val target = if (instance is Class<*>) null else instance
                 return@BshMethod method.invoke(target, *params)

@@ -1,5 +1,7 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Camera
 import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
@@ -27,7 +29,7 @@ object ForwardMessagesToMoments : SwitchFeature(), WeChatMessageContextMenuApi.I
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777009, "转圈", CameraIcon,
+                777009, "转圈", CameraIcon, MaterialSymbols.Outlined.Camera,
                 shouldShow = { it.type in SUPPORTED_MSG_TYPES },
                 onClick = { _, chattingContext, msgInfo ->
                     val activity = chattingContext.activity

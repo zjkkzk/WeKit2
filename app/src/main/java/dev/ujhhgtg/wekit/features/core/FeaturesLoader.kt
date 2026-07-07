@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.core
 
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.constants.Preferences
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.cache.DexCacheManager
@@ -23,7 +22,7 @@ import kotlin.time.measureTime
 
 object FeaturesLoader {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "FeaturesLoader"
 
     fun loadFeatures() {
         val allFeatures = FeaturesProvider.ALL_HOOK_ITEMS

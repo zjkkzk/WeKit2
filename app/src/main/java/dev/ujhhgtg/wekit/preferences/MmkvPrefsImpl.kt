@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.preferences
 
 import android.content.SharedPreferences
 import com.tencent.mmkv.MMKV
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -71,7 +70,7 @@ class MmkvPrefsImpl(name: String) : WePrefs() {
                 val bytes = mmkvInstance.getBytes(key, null) ?: return null
                 runCatching {
                     ObjectInputStream(ByteArrayInputStream(bytes)).readObject()
-                }.onFailure { WeLogger.e(nameOf(MmkvPrefsImpl), "failed when getting Serializable object", it) }.getOrNull()
+                }.onFailure { WeLogger.e("MmkvPrefsImpl", "failed when getting Serializable object", it) }.getOrNull()
             }
 
             else -> null

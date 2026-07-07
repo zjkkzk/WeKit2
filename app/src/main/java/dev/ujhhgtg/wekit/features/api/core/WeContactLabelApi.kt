@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.core
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.makeAccessible
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -18,7 +17,7 @@ import java.util.LinkedList
 @Feature(name = "联系人标签服务", categories = ["API"], description = "提供联系人标签查询与修改能力")
 object WeContactLabelApi : ApiFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeContactLabelApi"
 
     data class ContactLabel(val labelId: Int, val labelName: String)
 

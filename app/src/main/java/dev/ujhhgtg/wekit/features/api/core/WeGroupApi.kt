@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.api.core
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
@@ -13,7 +12,7 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 @Feature(name = "群聊管理服务", categories = ["API"], description = "提供添加/删除/邀请群成员能力")
 object WeGroupApi : ApiFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeGroupApi"
 
     // ul.m(String chatRoomName, List<String> members, String sceneNote, Object historyInfo)
     private val ctorAddMember by dexConstructor {

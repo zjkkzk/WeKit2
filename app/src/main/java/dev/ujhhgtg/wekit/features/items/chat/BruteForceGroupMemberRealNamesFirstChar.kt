@@ -17,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -30,10 +29,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeCurrentConversationApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
-import dev.ujhhgtg.wekit.features.items.chat.BruteForceGroupMemberRealNamesFirstChar.RETCODE_WRONG_NAME
-import dev.ujhhgtg.wekit.features.items.chat.BruteForceGroupMemberRealNamesFirstChar.classNetSceneTenpayRemittanceGen
-import dev.ujhhgtg.wekit.features.items.chat.BruteForceGroupMemberRealNamesFirstChar.onEnable
-import dev.ujhhgtg.wekit.features.items.chat.BruteForceGroupMemberRealNamesFirstChar.pendingPlaceOrders
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.DefaultColumn
@@ -42,6 +37,7 @@ import dev.ujhhgtg.wekit.ui.utils.ShowComposeDialogScope
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.currentWxId
+import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -65,7 +61,7 @@ import kotlin.time.Duration.Companion.seconds
 object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(), IResolveDex,
     WeContactPrefsScreenApi.IContactInfoProvider {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "BruteForceGroupMemberRealNamesFirstChar"
     private const val PREF_KEY = "exploit_real_name_first_char"
 
     /** WeChat's retcode for "姓名验证不正确" — i.e. the guessed [Char] was wrong. */
@@ -322,7 +318,9 @@ object BruteForceGroupMemberRealNamesFirstChar : SwitchFeature(), IResolveDex,
 
                 else -> {
                     // Unexpected retcode: sign may have expired or risk control kicked in
-                    return RunResult.Failed("意外的 retcode=$retcode (可能触发风控或 sign 失效)")
+//                    return RunResult.Failed("意外的 retcode=$retcode (可能触发风控或 sign 失效)")
+                    showToastSuspend("警告: 意外的 retcode=$retcode (可能触发风控或 sign 失效)!")
+                    delay(5.seconds)
                 }
             }
         }

@@ -15,7 +15,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -43,7 +42,7 @@ import kotlin.time.Duration.Companion.milliseconds
 )
 object MassSendMessage : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "MassSendMessage"
 
     override val noSwitchWidget = true
 

@@ -39,7 +39,6 @@ import com.composables.icons.materialsymbols.outlined.Add
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Person_search
 import com.composables.icons.materialsymbols.outlined.Schedule
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
@@ -228,7 +227,7 @@ private fun ChatRecordXmlGeneratorDialog(
                             showToast(context, "已从剪贴板加载 ${newRows.size} 条消息")
                         }.onFailure {
                             showToast(context, "解析失败: ${it.message}")
-                            WeLogger.e(nameOf(FabricateChatHistoryMessage), "failed to parse messages from clipboard", it)
+                            WeLogger.e("FabricateChatHistoryMessage", "failed to parse messages from clipboard", it)
                         }
                     },
                     modifier = Modifier.fillMaxWidth()

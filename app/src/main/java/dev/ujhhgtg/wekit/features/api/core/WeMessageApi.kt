@@ -11,7 +11,7 @@ import com.tencent.mm.opensdk.modelmsg.WXMusicVideoObject
 import com.tencent.mm.opensdk.modelmsg.WXTextObject
 import com.tencent.mm.opensdk.modelmsg.WXVideoObject
 import com.tencent.mm.opensdk.modelmsg.WXWebpageObject
-import dev.ujhhgtg.comptime.This
+import com.tencent.mm.plugin.gif.MMWXGFJNI
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.spec.VagueType
 import dev.ujhhgtg.reflekt.spec.typeMatches
@@ -19,6 +19,7 @@ import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.reflekt.utils.isBuiltin
 import dev.ujhhgtg.reflekt.utils.makeAccessible
+import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.constants.WeChatVersions
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -28,9 +29,12 @@ import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.net.WeNetSceneApi
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
+import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.collections.emptyHashSet
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.fs.asPath
 import dev.ujhhgtg.wekit.utils.reflection.BBool
 import dev.ujhhgtg.wekit.utils.reflection.BInt
 import dev.ujhhgtg.wekit.utils.reflection.BString
@@ -50,10 +54,24 @@ import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import java.lang.reflect.Proxy
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import kotlin.concurrent.thread
 import kotlin.io.path.Path
+import kotlin.io.path.absolutePathString
+import kotlin.io.path.copyTo
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.div
+import kotlin.io.path.fileSize
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.name
+import kotlin.io.path.nameWithoutExtension
+import kotlin.io.path.outputStream
+import kotlin.io.path.readBytes
+import kotlin.io.path.writeBytes
 import kotlin.random.Random
 
 
@@ -418,7 +436,7 @@ object WeMessageApi : ApiFeature(), IResolveDex {
     private lateinit var voiceDurationField: Field     // 语音时长字段
     private lateinit var voiceOffsetField: Field       // 偏移量字段
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeMessageApi"
 
     @SuppressLint("NonUniqueDexKitData")
     override fun resolveDex(dexKit: DexKitBridge) {
@@ -551,6 +569,10 @@ object WeMessageApi : ApiFeature(), IResolveDex {
 
     fun getMsgInfoInstanceByMsgId(msgId: Long, columnNames: Array<String>): Any {
         return getMsgInfoInstanceBySql("msgId=?", arrayOf(msgId.toString()), columnNames)
+    }
+
+    fun getMsgInfoInstanceByMsgSvrId(msgSvrId: Long, columnNames: Array<String>): Any {
+        return getMsgInfoInstanceBySql("msgSvrId=?", arrayOf(msgSvrId.toString()), columnNames)
     }
 
 //    /** Resolve a local [msgId] (message.msgId primary key) to its server id (message.msgSvrId). */
@@ -1414,6 +1436,402 @@ object WeMessageApi : ApiFeature(), IResolveDex {
                     type = classMsgInfo.clazz
                     superclass()
                 }.get()!!
+        }
+    }
+
+    // ---- 媒体下载/保存 ----
+
+    private val classEmojiFileEncryptMgr by dexClass {
+        matcher {
+            methods {
+                add {
+                    usingEqStrings(
+                        "MicroMsg.emoji.EmojiFileEncryptMgr",
+                        "decode emoji file failed. path is no exist :%s "
+                    )
+                }
+            }
+        }
+    }
+
+    // com.tencent.mm.pluginsdk.model.app 里的 "自动下载文件" Runnable (8069 为 b0, 8074 为 c0),
+    // 构造参数为一个 MsgInfo, run() 会解析 appmsg XML、创建 appattach 行并向 CDN 发起下载任务。
+    // 这正是微信里点击文件气泡"下载/缓存"所走的逻辑。
+    private val classAppAttachAutoDownload by dexClass {
+        searchPackages("com.tencent.mm.pluginsdk.model.app")
+        matcher {
+            methods {
+                add {
+                    usingEqStrings("MicroMsg.AppMessageExtension", "autoDownloadFile2 %s %s")
+                }
+            }
+        }
+    }
+
+    /** 从 message 表读取指定 msgSvrId 消息的 imgPath 字段 (贴纸为 md5, 语音为加密路径)。 */
+    private fun queryImgPathByMsgSvrId(msgSvrId: Long): String? {
+        val rows = WeDatabaseApi.rawQuery(
+            "SELECT imgPath FROM message WHERE msgSvrId=?",
+            arrayOf(msgSvrId.toString())
+        )
+        return rows.use { rows ->
+            if (!rows.moveToFirst()) null else rows.getString(0)?.takeIf { it.isNotEmpty() }
+        }
+    }
+
+    private data class ImgInfoRow(
+        val localId: Long,
+        val talker: String,
+        val bigImgPath: String,
+        val hevcPath: String?,
+        val midImgPath: String?,
+        /** reserved1: 若 > 0, 表示存在"原图"行, 值为原图行的 id (仅基础行有意义)。 */
+        val hdImgId: Long,
+    )
+
+    private fun ImgInfoRow(cursor: Cursor) = ImgInfoRow(
+        localId = cursor.getLong(0),
+        talker = cursor.getString(1) ?: "",
+        bigImgPath = cursor.getString(2) ?: "",
+        hevcPath = cursor.getString(3),
+        midImgPath = cursor.getString(4),
+        hdImgId = cursor.getLong(5),
+    )
+
+    private const val IMG_INFO_COLUMNS = "id, msgTalker, bigImgPath, hevcPath, midImgPath, reserved1"
+
+    private fun queryImgInfoRow(msgSvrId: Long): ImgInfoRow? {
+        val rows = WeDatabaseApi.rawQuery(
+            "SELECT $IMG_INFO_COLUMNS FROM ImgInfo2 WHERE msgSvrId=?",
+            arrayOf(msgSvrId.toString())
+        )
+        return rows.use { rows ->
+            if (!rows.moveToFirst()) null else ImgInfoRow(rows)
+        }
+    }
+
+    /** 按 id 查 ImgInfo2 行 (用于查找基础行 reserved1 指向的"原图"行)。 */
+    private fun queryImgInfoRowById(id: Long): ImgInfoRow? {
+        val rows = WeDatabaseApi.rawQuery(
+            "SELECT $IMG_INFO_COLUMNS FROM ImgInfo2 WHERE id=?",
+            arrayOf(id.toString())
+        )
+        return rows.use { rows ->
+            if (!rows.moveToFirst()) null else ImgInfoRow(rows)
+        }
+    }
+
+    /**
+     * 解析 ImgInfo2 行对应的、已真正落地到 image2/ 的大图文件。
+     * 微信可能把大图存为 bigImgPath / hevcPath / midImgPath 其中之一 (原图/HEVC 场景),
+     * 因此逐个尝试并要求文件确实存在且非空。
+     */
+    private fun resolveExistingImageFile(row: ImgInfoRow): Path? {
+        return listOfNotNull(row.bigImgPath, row.hevcPath, row.midImgPath)
+            .filter { it.isNotEmpty() && !it.startsWith("SERVERID://") }
+            .firstNotNullOfOrNull { name ->
+                resolveImageFile(name)?.takeIf { it.isRegularFile() && it.fileSize() > 0 }
+            }
+    }
+
+    /**
+     * 确保图片已缓存到微信内部 image2/ 存储, 返回真正落地的图片文件。
+     *
+     * 若消息带"原图" (发送方勾选原图), ImgInfo2 基础行的 reserved1 会指向另一"原图"行,
+     * 该行携带原图自己的 CDN key。微信"查看原图"正是对原图行的 localId 触发下载。
+     * 因此: 有原图则下载原图行, 否则下载基础行 (即微信压缩过的大图)。
+     *
+     * 注意: 不能依赖 ImgInfo2.iscomplete —— 该列 DEFAULT 1, 且微信只按 offset<totalLen?0:1 写它,
+     * 未下载的行也会读到 1; 微信内部判定完成用的是 totalLen==offset。同理 bigImgPath 被下载服务
+     * 在真正写入文件字节 *之前* 就从 SERVERID:// 改写为最终文件名, 所以只能以磁盘上文件是否存在为准。
+     */
+    private fun ensureImageCachedFile(msgSvrId: Long): Path? {
+        val baseRow = queryImgInfoRow(msgSvrId) ?: return null
+
+        // 有原图行则优先下载原图, 否则退回基础行
+        val targetRow = baseRow.hdImgId.takeIf { it > 0 }
+            ?.let { queryImgInfoRowById(it) }
+            ?.also { WeLogger.i(TAG, "image has original (hdImgId=${baseRow.hdImgId}), downloading original") }
+            ?: baseRow
+
+        // 已在磁盘上则直接返回
+        resolveExistingImageFile(targetRow)?.let { return it }
+
+        // 触发 CDN 下载, 轮询直到文件真正落地。talker 用基础行的 (原图行可能未存 msgTalker)。
+        if (!triggerDownload(targetRow.localId, targetRow.talker.ifEmpty { baseRow.talker })) return null
+        return pollUntilImageFileExists(targetRow.localId)
+    }
+
+    /**
+     * 缓存图片: 让微信把大图从 CDN 下载到它自己的 image2/ 存储 (相当于在聊天里点击图片下载)。
+     * 缓存与下载分离 —— 此方法只负责把图片缓存到微信内部, 不解码也不拷贝到 Download/WeKit/。
+     * @return 缓存后大图在微信内部的绝对路径, 失败返回 null
+     */
+    fun cacheImage(msgSvrId: Long): String? {
+        return try {
+            ensureImageCachedFile(msgSvrId)?.absolutePathString()
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "cacheImage failed", e)
+            null
+        }
+    }
+
+    /**
+     * 下载图片: 先确保图片已缓存到微信内部, 再进行 WXGF 解码并保存到 Download/WeKit/。
+     * @return 保存到 Download/WeKit/ 后的绝对路径, 失败返回 null
+     */
+    fun downloadImage(msgSvrId: Long): String? {
+        return try {
+            val file = ensureImageCachedFile(msgSvrId) ?: return null
+            decodeAndSave(file)
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "downloadImage failed", e)
+            null
+        }
+    }
+
+    private fun triggerDownload(imgLocalId: Long, talker: String): Boolean {
+        return try {
+            val m = WeServiceApi.methodDownloadImageServiceDownloadImage.method
+            val downloadService = m.declaringClass.createInstance()
+
+            val msgIdTalker = "com.tencent.mm.plugin.msg.MsgIdTalker".toClass()
+                .createInstance(imgLocalId, talker)
+
+            val wClass = m.parameterTypes[5]
+            val listener = Proxy.newProxyInstance(wClass.classLoader, arrayOf(wClass)) { proxy, method, args ->
+                when (method.name) {
+                    "hashCode" -> System.identityHashCode(proxy)
+                    "equals" -> proxy === args?.get(0)
+                    "toString" -> "WeKitDownloadCallback"
+                    else -> null
+                }
+            }
+
+            val result = m.invoke(downloadService, imgLocalId, msgIdTalker, 0, null, 0, listener, -1, false)
+            WeLogger.i(TAG, "triggerDownload result=$result")
+            (result as? Int)?.let { it >= 0 } ?: false
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "triggerDownload failed", e)
+            false
+        }
+    }
+
+    /** 轮询直到该 ImgInfo2 行的图片文件真正落地到磁盘 (以文件存在为准, 而非 iscomplete 标志)。 */
+    private fun pollUntilImageFileExists(imgLocalId: Long): Path? {
+        val deadline = System.currentTimeMillis() + 120_000
+        while (System.currentTimeMillis() < deadline) {
+            Thread.sleep(1000)
+            val row = queryImgInfoRowById(imgLocalId) ?: continue
+            resolveExistingImageFile(row)?.let { return it }
+        }
+        return null
+    }
+
+    private fun decodeAndSave(file: Path): String? {
+        return try {
+            val bytes = file.readBytes()
+            // 大图可能是 WXGF 编码, 尝试解码; 解码失败则视为普通图片直接使用原字节
+            val decoded = MMWXGFJNI.wxam2PicBuf(
+                bytes, 0, MMWXGFJNI.WXAM_SCENE_MISC
+            ) ?: bytes
+
+            val outDir = KnownPaths.downloads
+            val outFile = outDir / file.name
+            outFile.deleteIfExists()
+            outFile.writeBytes(decoded)
+            WeLogger.i(TAG, "saved: ${outFile.absolutePathString()}")
+            outFile.absolutePathString()
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "decodeAndSave failed", e)
+            null
+        }
+    }
+
+    private fun resolveImageFile(bigImgPath: String): Path? {
+        // 少数字段可能已是绝对路径, 直接使用
+        if (bigImgPath.startsWith("/")) return bigImgPath.asPath
+        // image2/xx/yy/<name> 需要文件名至少 4 个字符
+        if (bigImgPath.length < 4) return null
+        val microMsgPath = HostInfo.application.filesDir.asPath.parent / "MicroMsg"
+        val accountDir = microMsgPath.listDirectoryEntries()
+            .filter { Files.isDirectory(it) && it.fileName.toString().length == 32 }
+            .maxByOrNull { Files.getLastModifiedTime(it).toMillis() }
+            ?: return null
+        return accountDir / "image2" / bigImgPath.take(2) / bigImgPath.substring(2, 4) / bigImgPath
+    }
+
+    /**
+     * 根据 md5 解密贴纸, 转为 GIF 并保存到 Download/WeKit/。
+     * @return 保存后的文件路径, 失败返回 null
+     */
+    fun saveStickerByMd5(md5: String): String? {
+        return try {
+            val emojiInfo = WeServiceApi.getEmojiInfoByMd5(md5)
+            val emojiFileEncryptMgr = classEmojiFileEncryptMgr.reflekt()
+                .firstMethod {
+                    modifiers(Modifiers.STATIC)
+                    parameterCount = 0
+                }
+                .invokeStatic()!!
+            var bytes = emojiFileEncryptMgr.reflekt()
+                .firstMethod {
+                    parameters("com.tencent.mm.api.IEmojiInfo")
+                    returnType = ByteArray::class
+                }
+                .invoke(emojiInfo) as ByteArray
+            bytes = MMWXGFJNI.nativeWxamToGif(bytes)
+
+            val outPath = KnownPaths.downloads / "sticker_${System.currentTimeMillis()}.gif"
+            outPath.deleteIfExists()
+            outPath.outputStream().use { it.write(bytes) }
+            WeLogger.i(TAG, "saved sticker: $outPath")
+            outPath.absolutePathString()
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "saveStickerByMd5 failed", e)
+            null
+        }
+    }
+
+    /**
+     * 根据 msgSvrId 解密贴纸, 转为 GIF 并保存到 Download/WeKit/。
+     * @return 保存后的文件路径, 失败返回 null
+     */
+    fun cacheAndSaveSticker(msgSvrId: Long): String? {
+        val md5 = queryImgPathByMsgSvrId(msgSvrId) ?: run {
+            WeLogger.e(TAG, "cacheAndSaveSticker: no imgPath for msgSvrId=$msgSvrId")
+            return null
+        }
+        return saveStickerByMd5(md5)
+    }
+
+    /**
+     * 根据加密路径解码语音 (silk → mp3) 并保存到 Download/WeKit/。
+     * @return 保存后的 mp3 文件路径, 失败返回 null
+     */
+    fun saveVoiceByEncPath(encPath: String): String? {
+        return try {
+            val silkOriginalPath = getVoiceFullPath(encPath).asPath
+            val silkPath = KnownPaths.downloads / silkOriginalPath.name
+            val pcmPath = KnownPaths.downloads / (silkOriginalPath.nameWithoutExtension + ".pcm")
+            val mp3Path = KnownPaths.downloads / (silkOriginalPath.nameWithoutExtension + ".mp3")
+
+            silkPath.deleteIfExists()
+            silkOriginalPath.copyTo(silkPath, overwrite = true)
+            AudioUtils.silkToPcm(silkPath.absolutePathString(), pcmPath.absolutePathString())
+            AudioUtils.pcmToMp3(pcmPath.absolutePathString(), mp3Path.absolutePathString())
+            pcmPath.deleteIfExists()
+            WeLogger.i(TAG, "saved voice: $mp3Path")
+            mp3Path.absolutePathString()
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "saveVoiceByEncPath failed", e)
+            null
+        }
+    }
+
+    /**
+     * 根据 msgSvrId 解码语音 (silk → mp3) 并保存到 Download/WeKit/。
+     * @return 保存后的 mp3 文件路径, 失败返回 null
+     */
+    fun cacheAndSaveVoice(msgSvrId: Long): String? {
+        val encPath = queryImgPathByMsgSvrId(msgSvrId) ?: run {
+            WeLogger.e(TAG, "cacheAndSaveVoice: no imgPath for msgSvrId=$msgSvrId")
+            return null
+        }
+        return saveVoiceByEncPath(encPath)
+    }
+
+    // ---- 文件缓存/下载 ----
+
+    private data class AppAttachInfo(val status: Long, val offset: Long, val totalLen: Long, val fileFullPath: String?) {
+        // 与微信 d.n0() + status==199 一致: 文件已完整落地
+        val isComplete get() = status == 199L || totalLen > 0 && offset == totalLen
+    }
+
+    /** 从 appattach 表按 (msgInfoId, msgInfoTalker) 读取文件附件的下载状态与本地路径。 */
+    private fun queryAppAttach(msgId: Long, talker: String): AppAttachInfo? {
+        val rows = WeDatabaseApi.rawQuery(
+            "SELECT status, offset, totalLen, fileFullPath FROM appattach WHERE msgInfoId=? AND msgInfoTalker=?",
+            arrayOf(msgId.toString(), talker)
+        )
+        return rows.use { rows ->
+            if (!rows.moveToFirst()) null
+            else AppAttachInfo(rows.getLong(0), rows.getLong(1), rows.getLong(2), rows.getString(3))
+        }
+    }
+
+    /**
+     * 触发微信内部下载 (相当于点击文件气泡"下载"): 解析 appmsg XML、创建 appattach 行、向 CDN 发起下载任务。
+     * 通过复用微信自己的 autoDownloadFile Runnable 完成。
+     */
+    private fun triggerFileDownload(msgInfoInstance: Any): Boolean {
+        return try {
+            val runnable = classAppAttachAutoDownload.clazz.createInstance(msgInfoInstance, isPublic = false)
+            (runnable as Runnable).run()
+            true
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "triggerFileDownload failed", e)
+            false
+        }
+    }
+
+    private fun pollUntilFileDownloaded(msgId: Long, talker: String): String? {
+        val deadline = System.currentTimeMillis() + 120_000
+        while (System.currentTimeMillis() < deadline) {
+            val info = queryAppAttach(msgId, talker)
+            if (info != null && info.isComplete && !info.fileFullPath.isNullOrEmpty()) {
+                return info.fileFullPath
+            }
+            Thread.sleep(1000)
+        }
+        return null
+    }
+
+    /**
+     * 缓存文件: 让微信把文件附件下载到它自己的存储目录 (相当于在聊天里点击文件气泡下载)。
+     * 缓存与下载分离 —— 此方法只负责把文件缓存到微信内部, 不拷贝到 Download/WeKit/。
+     * @return 缓存后文件在微信内部的绝对路径, 失败返回 null
+     */
+    fun cacheFile(msgSvrId: Long): String? {
+        return try {
+            val msgInfoInstance = getMsgInfoInstanceByMsgSvrId(
+                msgSvrId, arrayOf("type", "msgSvrId", "talker", "content", "createTime")
+            )
+            val mi = MessageInfo(msgInfoInstance)
+            val talker = mi.talker
+
+            // 已缓存则直接返回
+            queryAppAttach(mi.id, talker)?.let { info ->
+                if (info.isComplete && !info.fileFullPath.isNullOrEmpty()) return info.fileFullPath
+            }
+
+            if (!triggerFileDownload(msgInfoInstance)) return null
+            pollUntilFileDownloaded(mi.id, talker)
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "cacheFile failed", e)
+            null
+        }
+    }
+
+    /**
+     * 下载文件: 先确保文件已缓存到微信内部, 再把它拷贝到 Download/WeKit/。
+     * @return 拷贝到 Download/WeKit/ 后的绝对路径, 失败返回 null
+     */
+    fun downloadFile(msgSvrId: Long): String? {
+        return try {
+            val cachedPath = cacheFile(msgSvrId) ?: run {
+                WeLogger.e(TAG, "downloadFile: failed to cache file for msgSvrId=$msgSvrId")
+                return null
+            }
+            val srcPath = cachedPath.asPath
+            val destPath = KnownPaths.downloads / srcPath.name
+            destPath.deleteIfExists()
+            srcPath.copyTo(destPath, overwrite = true)
+            WeLogger.i(TAG, "downloaded file: $destPath")
+            destPath.absolutePathString()
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "downloadFile failed", e)
+            null
         }
     }
 }

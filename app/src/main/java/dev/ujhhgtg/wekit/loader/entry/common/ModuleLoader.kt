@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.loader.entry.common
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.loader.abc.IHookBridge
 import dev.ujhhgtg.wekit.loader.abc.ILoaderService
 import dev.ujhhgtg.wekit.loader.startup.UnifiedEntryPoint
@@ -8,7 +7,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 
 object ModuleLoader {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ModuleLoader"
     private var isInitialized = false
 
 //    private lateinit var savedHostClassLoader: ClassLoader

@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.loader.utils
 import android.content.Intent
 import android.os.Bundle
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.hookDirectly
@@ -12,7 +11,7 @@ import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 
 object ParcelableFixer {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ParcelableFixer"
 
     lateinit var hybridClassLoader: ClassLoader
         private set

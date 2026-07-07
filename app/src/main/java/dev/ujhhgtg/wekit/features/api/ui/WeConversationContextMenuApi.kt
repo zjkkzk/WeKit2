@@ -5,7 +5,6 @@ import android.graphics.drawable.Drawable
 import android.view.ContextMenu
 import android.widget.AdapterView
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -22,7 +21,7 @@ import dev.ujhhgtg.wekit.utils.reflection.BString
 )
 object WeConversationContextMenuApi : ApiFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeConversationContextMenuApi"
 
     fun interface IMenuItemsProvider {
         fun getMenuItems(): List<MenuItem>

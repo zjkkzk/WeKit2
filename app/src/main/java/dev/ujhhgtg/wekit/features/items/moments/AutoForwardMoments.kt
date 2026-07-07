@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import com.tencent.mm.plugin.sns.ui.SnsUserUI
 import com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI
 import com.tencent.mm.view.recyclerview.WxRecyclerView
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -70,7 +69,7 @@ object AutoForwardMoments : ClickableFeature(),
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "AutoForwardMoments"
 
     private const val MODE_WHEN_SEEN = 0
     private const val MODE_ALL_LOADED = 1

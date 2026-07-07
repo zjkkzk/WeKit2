@@ -1,43 +1,23 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import com.tencent.mm.plugin.gif.MMWXGFJNI
-import dev.ujhhgtg.comptime.This
-import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.reflekt.utils.Modifiers
-import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
-import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
-import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Download
+import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.utils.DownloadIcon
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
-import dev.ujhhgtg.wekit.utils.fs.KnownPaths
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlin.io.path.div
-import kotlin.io.path.outputStream
 
 @Feature(name = "贴纸保存到本地", categories = ["聊天"], description = "在贴纸消息菜单添加保存按钮, 允许将图片保存到本地")
-object SaveStickersToLocalStorage : SwitchFeature(), IResolveDex,
+object SaveStickersToLocalStorage : SwitchFeature(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
 
-    private val TAG = This.Class.simpleName
-
-    private val classEmojiFileEncryptMgr by dexClass {
-        matcher {
-            methods {
-                add {
-                    usingEqStrings(
-                        "MicroMsg.emoji.EmojiFileEncryptMgr",
-                        "decode emoji file failed. path is no exist :%s "
-                    )
-                }
-            }
-        }
-    }
+    private const val TAG = "SaveStickersToLocalStorage"
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)
@@ -54,36 +34,17 @@ object SaveStickersToLocalStorage : SwitchFeature(), IResolveDex,
                 777001,
                 "存本地",
                 DownloadIcon,
+                MaterialSymbols.Outlined.Download,
                 { msgInfo -> msgInfo.type?.isSticker ?: false }
             ) { _, _, msgInfo ->
                 val md5 = msgInfo.imagePath!!
-                val emojiInfo = WeServiceApi.getEmojiInfoByMd5(md5)
-                val emojiFileEncryptMgr = classEmojiFileEncryptMgr.reflekt()
-                    .firstMethod {
-                        modifiers(Modifiers.STATIC)
-                        parameterCount = 0
-                    }
-                    .invokeStatic()!!
-                var bytes = emojiFileEncryptMgr.reflekt()
-                    .firstMethod {
-                        parameters("com.tencent.mm.api.IEmojiInfo")
-                        returnType = ByteArray::class
-                    }
-                    .invoke(emojiInfo) as ByteArray
-                bytes = MMWXGFJNI.nativeWxamToGif(bytes)
-
-                val fileName = "sticker_${System.currentTimeMillis()}.gif"
                 CoroutineScope(Dispatchers.IO).launch {
-                    runCatching {
-                        (KnownPaths.downloads / fileName).outputStream().use { out ->
-                            out.write(bytes)
-                        }
-                    }.onSuccess {
-                        showToastSuspend("已将贴纸保存到 /sdcard/Download/WeKit/$fileName")
-                    }.onFailure { e ->
-                        WeLogger.e(TAG, "failed to save sticker $fileName", e)
+                    val path = WeMessageApi.saveStickerByMd5(md5) ?: run {
+                        WeLogger.e(TAG, "failed to save sticker")
                         showToastSuspend("贴纸保存失败! 查看日志以了解错误详情")
+                        return@launch
                     }
+                    showToastSuspend("已将贴纸保存到 $path")
                 }
             }
         )

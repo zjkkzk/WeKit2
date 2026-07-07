@@ -19,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -46,7 +45,7 @@ import kotlin.io.path.writeText
  * nested groupId -> members list in red_packet_group_members.json.
  */
 object RedPacketGroupMemberFilter {
-    private val TAG = This.Class.simpleName
+    private const val TAG = "RedPacketGroupMemberFilter"
 
     private val configFile by lazy { KnownPaths.moduleData / "red_packet_group_members.json" }
 

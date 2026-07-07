@@ -22,7 +22,6 @@ import com.tencent.mm.plugin.sns.ui.SnsUserUI
 import com.tencent.mm.plugin.sns.ui.improve.ImproveSnsTimelineUI
 import com.tencent.mm.ui.widget.imageview.WeImageView
 import com.tencent.mm.view.recyclerview.WxRecyclerView
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -50,7 +49,7 @@ import java.util.Locale
 )
 object DisplayDetails : ClickableFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "DisplayDetails"
 
     private var textFormat by prefOption("moments_details_text_format", DEFAULT_TEXT_FORMAT)
     private var timeFormat by prefOption("moments_details_time_format", DEFAULT_TIME_FORMAT)

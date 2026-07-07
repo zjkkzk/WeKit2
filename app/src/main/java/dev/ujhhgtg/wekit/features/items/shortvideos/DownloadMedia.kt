@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.shortvideos
 
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.features.api.ui.WeShortVideosShareMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -29,7 +28,7 @@ import kotlin.io.path.outputStream
 object DownloadMedia : SwitchFeature(),
     WeShortVideosShareMenuApi.IMenuItemsProvider {
 
-    private val TAG = nameOf(DownloadMedia)
+    private const val TAG = "DownloadMedia"
 
     override fun onEnable() {
         WeShortVideosShareMenuApi.addProvider(this)

@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.debug
 import android.os.Debug
 import android.os.Process
 import androidx.activity.ComponentActivity
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -11,7 +10,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "内存分析", categories = ["调试"], description = "分析微信内存占用组成")
 object ProfileMemory : ClickableFeature() {
 
-    private val TAG = nameOf(ProfileMemory)
+    private const val TAG = "ProfileMemory"
 
     override val noSwitchWidget = true
 

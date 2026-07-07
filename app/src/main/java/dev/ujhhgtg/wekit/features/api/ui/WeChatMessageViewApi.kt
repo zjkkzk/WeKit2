@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.api.ui
 
 import android.view.View
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -38,7 +37,7 @@ object WeChatMessageViewApi : ApiFeature(), IResolveDex {
         )
     }
 
-    private val TAG = nameOf(WeChatMessageViewApi)
+    private const val TAG = "WeChatMessageViewApi"
 
     private val methodChatItemOnBindView by dexMethod {
         matcher {

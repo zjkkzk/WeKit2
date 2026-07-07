@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import android.content.Context
 import android.view.MenuItem
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
@@ -19,41 +18,19 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.reflection.BInt
 
 @Feature(name = "移除消息菜单项", categories = ["聊天"], description = "从消息的长按菜单中移除指定名称的菜单项")
 object RemoveChatMessageContextMenuItems : ClickableFeature(), IResolveDex {
 
-    // although there are multiple addMenuItem() methods, i only found the usage of those two in the context menu of chat messages
-    private val methodAddMenuItem1 by dexMethod {
+    // this is the method that builds the whole context menu (m0.a). we can't reliably hook the
+    // individual menu.add(...) calls because wechat also inserts items by constructing MenuItem
+    // objects directly into the backing list (during its reorder passes), bypassing add()/c()
+    // entirely. so instead we hook after the menu is fully built and sweep the backing list by
+    // title, which catches every item regardless of how it was added.
+    private val methodCreateMenu by dexMethod {
+        searchPackages("com.tencent.mm.ui.chatting.viewitems")
         matcher {
-            declaredClass {
-                addFieldForType(List::class.javaObjectType)
-                addFieldForType(CharSequence::class.java)
-                addFieldForType(Context::class.java)
-            }
-
-            name = "add"
-            paramTypes(
-                BInt,
-                BInt,
-                BInt,
-                CharSequence::class.java
-            )
-            returnType(MenuItem::class.java)
-        }
-    }
-    private val methodAddMenuItem2 by dexMethod {
-        matcher {
-            declaredClass(methodAddMenuItem1.method.declaringClass)
-            paramTypes(
-                BInt,
-                BInt,
-                BInt,
-                CharSequence::class.java,
-                BInt
-            )
-            returnType(MenuItem::class.java)
+            usingEqStrings("MicroMsg.ChattingItem", "msg is null!")
         }
     }
 
@@ -63,17 +40,22 @@ object RemoveChatMessageContextMenuItems : ClickableFeature(), IResolveDex {
     )
 
     override fun onEnable() {
-        listOf(methodAddMenuItem1, methodAddMenuItem2).forEach {
-            it.hookAfter {
-                val name = args[3] as CharSequence
-                val removedNames = removedItemNames.split(',')
+        methodCreateMenu.hookAfter {
+            val removedNames = removedItemNames.split(',')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+            if (removedNames.isEmpty()) return@hookAfter
 
-                if (removedNames.contains(name)) {
-                    val list = thisObject.reflekt()
-                        .firstField { type = List::class }
-                        .get()!! as ArrayList<*>
-                    list.removeAt(list.size - 1)
-                }
+            // args[0] is the menu (db5.g4); its single List field is the backing ArrayList of items
+            val list = args[0].reflekt()
+                .firstField { type = List::class }
+                .get() as? MutableList<*> ?: return@hookAfter
+
+            @Suppress("UNCHECKED_CAST")
+            (list as MutableList<Any?>).removeAll { item ->
+                // WeKit's own injected items carry a " [K]" suffix so they never match here
+                val title = (item as? MenuItem)?.title?.toString()?.trim()
+                title != null && removedNames.contains(title)
             }
         }
     }

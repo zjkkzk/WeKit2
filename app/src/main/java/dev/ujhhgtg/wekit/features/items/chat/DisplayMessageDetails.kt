@@ -9,6 +9,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Info
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -35,7 +37,7 @@ object DisplayMessageDetails : SwitchFeature(),
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777005, "查看详情",
-                ChatInfoIcon, { _ -> true })
+                ChatInfoIcon, MaterialSymbols.Outlined.Info, { _ -> true })
             { view, _, msgInfo ->
                 val displayItems = mutableListOf<Pair<String, String>>()
                 displayItems += "类型" to msgInfo.typeCode.toString()

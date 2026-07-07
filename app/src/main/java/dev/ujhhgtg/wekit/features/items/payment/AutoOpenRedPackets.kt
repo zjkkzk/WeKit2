@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.core.net.toUri
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
@@ -52,7 +51,7 @@ import kotlin.random.Random
 object AutoOpenRedPackets : ClickableFeature(), WeDatabaseListenerApi.IInsertListener,
     IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "AutoOpenRedPackets"
 
     private val classReceiveLuckyMoney by dexClass {
         matcher {

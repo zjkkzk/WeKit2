@@ -69,7 +69,6 @@ import com.composables.icons.materialsymbols.outlined.Video_chat
 import com.composables.icons.materialsymbols.outlined.Voice_chat
 import com.tencent.mm.pluginsdk.ui.chat.ChatFooter
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
@@ -102,7 +101,7 @@ import java.lang.ref.WeakReference
 @Feature(name = "聊天工具栏", categories = ["聊天"], description = "在输入框上方添加工具栏")
 object ChatToolbar : ClickableFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ChatToolbar"
 
     private val NAME_TO_ICON_MAP = mapOf(
         "相册" to MaterialSymbols.Outlined.Photo_library,

@@ -1,0 +1,621 @@
+package dev.ujhhgtg.wekit.features.api.agent
+
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import dev.ujhhgtg.wekit.agent.data.WeAgentDatabase
+import dev.ujhhgtg.wekit.agent.data.WeAgentRepository
+import dev.ujhhgtg.wekit.agent.data.WeAgentSettings
+import dev.ujhhgtg.wekit.agent.data.entity.ApprovalStatus
+import dev.ujhhgtg.wekit.agent.data.entity.MessageRole
+import dev.ujhhgtg.wekit.agent.engine.AgentEvent
+import dev.ujhhgtg.wekit.agent.engine.AgentSessionEngine
+import dev.ujhhgtg.wekit.agent.engine.ApprovalGateway
+import dev.ujhhgtg.wekit.agent.engine.ManualApprovalHandler
+import dev.ujhhgtg.wekit.agent.engine.ManualApprovalResult
+import dev.ujhhgtg.wekit.agent.engine.PendingApproval
+import dev.ujhhgtg.wekit.agent.engine.PromptComposer
+import dev.ujhhgtg.wekit.agent.engine.SmallModelRef
+import dev.ujhhgtg.wekit.agent.engine.TurnConfig
+import dev.ujhhgtg.wekit.agent.mcp.McpClientManager
+import dev.ujhhgtg.wekit.agent.model.LlmToolCall
+import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
+import dev.ujhhgtg.wekit.agent.tool.BuiltinToolProvider
+import dev.ujhhgtg.wekit.agent.tool.ToolRegistry
+import dev.ujhhgtg.wekit.agent.ui.UiImageSink
+import dev.ujhhgtg.wekit.agent.workspace.VfsContext
+import dev.ujhhgtg.wekit.agent.workspace.WorkspaceStore
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.ballState
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.newSession
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.pendingApproval
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.resolveApproval
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.sendMessage
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.switchSession
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiMessages
+import dev.ujhhgtg.wekit.features.api.agent.WeAgentService.uiSessions
+import dev.ujhhgtg.wekit.utils.WeLogger
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * The WeAgent brain: a process-level singleton coordinating persistence, the tool registry, the
+ * model layer, and the [AgentSessionEngine], while exposing Compose snapshot state for the overlay
+ * UI. Lives in WeChat's main process; initialized once when the [dev.ujhhgtg.wekit] WeAgent feature
+ * is enabled.
+ *
+ * The overlay UI is intentionally thin (per project decision): it renders [uiSessions]/[uiMessages]/
+ * [ballState]/[pendingApproval] and calls [sendMessage]/[newSession]/[switchSession]/… — all heavy
+ * logic lives here.
+ */
+object WeAgentService {
+
+    private const val TAG = "WeAgentService"
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Permission resolution + persistence are unified in the repository.
+    private val registry = ToolRegistry(permissions = WeAgentRepository, providers = BuiltinToolProvider.all)
+
+    // --- UI state (Compose snapshot) ---
+
+    /** Floating-ball state machine (§1.2). */
+    enum class BallState { IDLE, RUNNING, PENDING_APPROVAL, ERROR }
+
+    val ballState = mutableStateOf(BallState.IDLE)
+    val currentSessionId = mutableStateOf<String?>(null)
+
+    /** Sessions shown in the drawer, newest first. */
+    val uiSessions: SnapshotStateList<SessionRow> = mutableStateListOf()
+
+    /** Messages of the current session, oldest first. Streaming deltas mutate the last row. */
+    val uiMessages: SnapshotStateList<ChatRow> = mutableStateListOf()
+
+    /** Non-null while a manual-approval card is awaiting the user's decision. */
+    val pendingApproval = mutableStateOf<PendingApprovalUi?>(null)
+
+    /** Current session's bound model / system-prompt ids, for the input-bar + menu. */
+    val currentModelId = mutableStateOf<String?>(null)
+    val currentSystemPromptId = mutableStateOf<String?>(null)
+
+    /** Current session's bound workspace id (null = unbound), for the input-bar + menu. */
+    val currentWorkspaceId = mutableStateOf<String?>(null)
+
+    /** Global memory-enabled flag mirrored for the input-bar + menu toggle. */
+    val memoryEnabled = mutableStateOf(false)
+
+
+    /** Token usage of the latest model request this session, for the usage strip (null = none yet). */
+    val currentUsage = mutableStateOf<dev.ujhhgtg.wekit.agent.model.LlmUsage?>(null)
+
+    // --- Queued-message state (§1.2) ---
+
+    /** What happens when the user sends while a turn is already running. */
+    enum class SendWhileRunningMode { QUEUE_AFTER_TURN, QUEUE_AS_STEER }
+
+    val sendWhileRunningMode = mutableStateOf(SendWhileRunningMode.QUEUE_AFTER_TURN)
+
+    /**
+     * Non-null while the user has queued a message waiting to be sent. The UI shows the pending text
+     * in the input bar (grayed out), a cancel button replaces send, and the input is read-only until
+     * the queued message is either sent or cancelled.
+     */
+    val queuedMessage = mutableStateOf<String?>(null)
+
+    /** Available models / system prompts / presets / workspaces for the input-bar menus (synced with DB). */
+    val availableModels: SnapshotStateList<ModelOption> = mutableStateListOf()
+    val availableSystemPrompts: SnapshotStateList<SystemPromptOption> = mutableStateListOf()
+    val availablePresets: SnapshotStateList<PresetOption> = mutableStateListOf()
+    val availableWorkspaces: SnapshotStateList<WorkspaceOption> = mutableStateListOf()
+
+    /**
+     * [label] is "<provider name>:<model display or remote id>". [contextWindow] is the model's
+     * custom context window (tokens) for the usage percentage, or null when unknown.
+     */
+    data class ModelOption(val id: String, val label: String, val contextWindow: Int? = null)
+    data class SystemPromptOption(val id: String, val name: String)
+    data class PresetOption(val id: String, val title: String, val content: String)
+    data class WorkspaceOption(val id: String, val name: String)
+
+    data class SessionRow(val id: String, val title: String)
+    data class ChatRow(
+        val id: String,
+        val role: Role,
+        var text: String,
+        var reasoning: String? = null,
+        var toolName: String? = null,
+        var toolStatus: ApprovalStatus? = null,
+    ) {
+        enum class Role { USER, ASSISTANT, TOOL, SYSTEM_NOTE }
+    }
+
+    data class PendingApprovalUi(
+        val pending: PendingApproval,
+        val deferred: CompletableDeferred<ManualApprovalResult>,
+    )
+
+    @Volatile private var initialized = false
+    @Volatile private var runningTurn: Job? = null
+
+    // -----------------------------------------------------------------------------------------
+    // Lifecycle
+    // -----------------------------------------------------------------------------------------
+
+    fun init() {
+        if (initialized) return
+        initialized = true
+        scope.launch {
+            runCatching {
+                // Warm the DB, seed permissions, load settings.
+                WeAgentDatabase.instance
+                WeAgentRepository.seedAndLoad()
+                WeAgentSettings.load()
+                BuiltinToolProvider.fsToolsVisible =
+                    WeAgentSettings.workspaceEnabled() || WeAgentSettings.memoryEnabled()
+
+                // Bring up MCP providers and keep the registry's MCP set in sync.
+                McpClientManager.onProvidersChanged = {
+                    registry.setMcpProviders(McpClientManager.connectedProviders())
+                }
+                McpClientManager.sync()
+
+                // Observe sessions for the drawer.
+                launch {
+                    WeAgentRepository.observeSessions().collectLatest { rows ->
+                        withContext(Dispatchers.Main) {
+                            uiSessions.clear()
+                            uiSessions.addAll(rows.map { SessionRow(it.id, it.title) })
+                        }
+                    }
+                }
+                // Observe models + providers for the panel quick-switch menu. The label is
+                // "<providerName>:<displayName|modelId>" (§ item 1), so we combine both flows.
+                launch {
+                    kotlinx.coroutines.flow.combine(
+                        WeAgentRepository.observeModels(),
+                        WeAgentRepository.observeModelProviders(),
+                    ) { models, providers ->
+                        val providerName = providers.associate { it.id to it.name }
+                        models.map { m ->
+                            val model = m.displayName.ifBlank { m.modelIdRemote }
+                            val prefix = providerName[m.providerId]?.takeIf { it.isNotBlank() }
+                            ModelOption(m.id, if (prefix != null) "$prefix:$model" else model, m.contextWindow)
+                        }
+                    }.collectLatest { rows ->
+                        withContext(Dispatchers.Main) {
+                            availableModels.clear()
+                            availableModels.addAll(rows)
+                        }
+                    }
+                }
+                launch {
+                    WeAgentRepository.observeSystemPrompts().collectLatest { rows ->
+                        withContext(Dispatchers.Main) {
+                            availableSystemPrompts.clear()
+                            availableSystemPrompts.addAll(rows.map { SystemPromptOption(it.id, it.name) })
+                        }
+                    }
+                }
+                launch {
+                    WeAgentRepository.observePresetPrompts().collectLatest { rows ->
+                        withContext(Dispatchers.Main) {
+                            availablePresets.clear()
+                            availablePresets.addAll(rows.map { PresetOption(it.id, it.title, it.content) })
+                        }
+                    }
+                }
+                launch {
+                    WeAgentRepository.observeWorkspaces().collectLatest { rows ->
+                        withContext(Dispatchers.Main) {
+                            availableWorkspaces.clear()
+                            availableWorkspaces.addAll(rows.map { WorkspaceOption(it.id, it.name) })
+                        }
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    memoryEnabled.value = WeAgentSettings.memoryEnabled()
+                    sendWhileRunningMode.value = WeAgentSettings.sendWhileRunningMode()
+                }
+                WeLogger.i(TAG, "WeAgentService initialized")
+            }.onFailure { WeLogger.e(TAG, "init failed", it) }
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Session management (called by the overlay drawer)
+    // -----------------------------------------------------------------------------------------
+
+    fun newSession() = scope.launch { createAndSwitchSession() }
+
+    /**
+     * Creates a new session (applying the configured defaults), selects it, and returns its id — or
+     * null when no model is configured. Unlike [newSession] (fire-and-forget), this completes the
+     * create + select inline within the caller's coroutine, so callers can use the returned id
+     * immediately without racing session selection.
+     */
+    private suspend fun createAndSwitchSession(): String? {
+        val modelId = WeAgentSettings.defaultModelId() ?: firstAvailableModelId()
+        if (modelId == null) {
+            WeLogger.w(TAG, "cannot create session: no model configured")
+            return null
+        }
+        val id = WeAgentRepository.createSession(
+            modelId = modelId,
+            systemPromptId = WeAgentSettings.defaultSystemPromptId(),
+            // Leave the workspace unbound ("默认"): it resolves to the settings default
+            // workspace at turn time, so changing the default takes effect on old sessions too.
+            workspaceId = null,
+        )
+        switchSessionInternal(id)
+        return id
+    }
+
+    fun switchSession(id: String) = scope.launch { switchSessionInternal(id) }
+
+    private suspend fun switchSessionInternal(id: String) {
+        currentSessionId.value = id
+        val session = WeAgentRepository.getSession(id)
+        withContext(Dispatchers.Main) {
+            currentModelId.value = session?.modelId
+            currentSystemPromptId.value = session?.systemPromptId
+            currentWorkspaceId.value = session?.workspaceId
+            // Usage is per-request and not persisted; clear it when switching away.
+            currentUsage.value = null
+        }
+        reloadMessages(id)
+    }
+
+    fun deleteSession(id: String) = scope.launch {
+        WeAgentRepository.deleteSession(id)
+        if (currentSessionId.value == id) {
+            currentSessionId.value = null
+            withContext(Dispatchers.Main) {
+                uiMessages.clear()
+                currentUsage.value = null
+                currentModelId.value = null
+                currentSystemPromptId.value = null
+                currentWorkspaceId.value = null
+            }
+            // Clear any stale approval from the deleted session.
+            val p = pendingApproval.value
+            if (p != null && !p.deferred.isCompleted) {
+                p.deferred.complete(ManualApprovalResult.Rejected("会话已删除"))
+            }
+            pendingApproval.value = null
+            // Clear the queued message — it belongs to the deleted session.
+            queuedMessage.value = null
+        }
+    }
+
+    fun renameSession(id: String, title: String) = scope.launch {
+        WeAgentRepository.renameSession(id, title)
+    }
+
+    fun setSessionModel(modelId: String) = scope.launch {
+        currentSessionId.value?.let { WeAgentRepository.updateSessionModel(it, modelId) }
+        withContext(Dispatchers.Main) { currentModelId.value = modelId }
+    }
+
+    fun setSessionSystemPrompt(systemPromptId: String?) = scope.launch {
+        currentSessionId.value?.let { WeAgentRepository.updateSessionSystemPrompt(it, systemPromptId) }
+        withContext(Dispatchers.Main) { currentSystemPromptId.value = systemPromptId }
+    }
+
+    /** Binds (or clears, id=null) the current session's workspace. */
+    fun setSessionWorkspace(workspaceId: String?) = scope.launch {
+        currentSessionId.value?.let { WeAgentRepository.updateSessionWorkspace(it, workspaceId) }
+        withContext(Dispatchers.Main) { currentWorkspaceId.value = workspaceId }
+    }
+
+    /** Toggles the global memory-enabled setting (also flips fs-tool visibility). */
+    fun setMemoryEnabled(enabled: Boolean) = scope.launch {
+        WeAgentSettings.set(WeAgentSettings.KEY_MEMORY_ENABLED, enabled.toString())
+        BuiltinToolProvider.fsToolsVisible = enabled || WeAgentSettings.workspaceEnabled()
+        withContext(Dispatchers.Main) { memoryEnabled.value = enabled }
+    }
+
+    private suspend fun reloadMessages(sessionId: String) {
+        val rows = WeAgentRepository.getMessages(sessionId).mapNotNull { m ->
+            when (m.role) {
+                MessageRole.USER ->
+                    ChatRow(m.id, ChatRow.Role.USER, m.content)
+                MessageRole.ASSISTANT ->
+                    ChatRow(m.id, ChatRow.Role.ASSISTANT, m.content)
+                MessageRole.TOOL -> {
+                    val idx = m.content.indexOf(' ')
+                    val payload = if (idx >= 0) m.content.substring(idx + 1) else m.content
+                    ChatRow(m.id, ChatRow.Role.TOOL, payload)
+                }
+                MessageRole.SYSTEM -> null
+            }
+        }
+        withContext(Dispatchers.Main) {
+            uiMessages.clear()
+            uiMessages.addAll(rows)
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Sending a message / running a turn
+    // -----------------------------------------------------------------------------------------
+
+    /** Resolves the user just approved/rejected a pending tool call. */
+    fun resolveApproval(result: ManualApprovalResult) {
+        val p = pendingApproval.value ?: return
+        p.deferred.complete(result)
+        pendingApproval.value = null
+        if (ballState.value == BallState.PENDING_APPROVAL) ballState.value = BallState.RUNNING
+    }
+
+    /** Cancels the in-flight turn (if any) and clears any queued message. */
+    fun cancelTurn() {
+        runningTurn?.cancel()
+        runningTurn = null
+        ballState.value = BallState.IDLE
+        queuedMessage.value = null
+    }
+
+    /** Cancels only the queued (not-yet-sent) message, restoring the input bar. */
+    fun cancelQueuedMessage() {
+        queuedMessage.value = null
+    }
+
+    fun sendMessage(userText: String) {
+        if (userText.isBlank()) return
+
+        // If a turn is already running and there's no queued message yet, queue according to mode.
+        if (runningTurn?.isActive == true && queuedMessage.value == null) {
+            queuedMessage.value = userText
+            return
+        }
+
+        val sessionId = currentSessionId.value
+        if (sessionId == null) {
+            // Auto-create a session, then send in the SAME coroutine using the returned id (no race
+            // on currentSessionId being set by a separate switchSession launch).
+            scope.launch {
+                val newId = createAndSwitchSession()
+                if (newId != null) runTurn(newId, userText)
+                else appendSystemNote("未配置可用的模型，请先在设置中添加模型提供方与模型。")
+            }
+            return
+        }
+        scope.launch { runTurn(sessionId, userText) }
+    }
+
+    private suspend fun runTurn(sessionId: String, userText: String) {
+        val config = resolveTurnConfig(sessionId)
+        if (config == null) {
+            appendSystemNote("未配置可用的模型，请先在设置中添加模型提供方与模型。")
+            return
+        }
+
+        val session = WeAgentRepository.getSession(sessionId) ?: return
+        val priorHistory = WeAgentRepository.loadHistory(sessionId)
+
+        // Optimistically render the user message.
+        appendUiRow(ChatRow(id = "u_${System.nanoTime()}", role = ChatRow.Role.USER, text = userText))
+
+        // Wire the steer-hook so that a queued message in QUEUE_AS_STEER mode is injected before
+        // the next model request (atomic — consumed once).
+        val onFetchSteer: (() -> String?)? = if (sendWhileRunningMode.value == SendWhileRunningMode.QUEUE_AS_STEER) ({
+            val msg = queuedMessage.value
+            if (msg != null) {
+                appendUiRow(ChatRow(
+                    id = "u_steer_${System.nanoTime()}",
+                    role = ChatRow.Role.USER,
+                    text = "(引导) $msg",
+                ))
+                queuedMessage.value = null
+            }
+            msg
+        }) else null
+
+        val engine = buildEngine(sessionId)
+        // A null session workspace means "默认": resolve to the settings default workspace so
+        // changing the default applies to existing sessions too.
+        val effectiveWorkspaceId = session.workspaceId ?: WeAgentSettings.defaultWorkspaceId()
+        val vfs = WorkspaceStore.buildVfs(
+            workspaceName = effectiveWorkspaceId?.let { WeAgentRepository.getWorkspaceName(it) },
+            memoryEnabled = WeAgentSettings.memoryEnabled(),
+        )
+
+        ballState.value = BallState.RUNNING
+        runningTurn = scope.launch {
+            try {
+                // Install the VFS context so fs @AgentTools resolve the right roots this turn.
+                // Install UiImageSink so ui-screenshot can stage images for injection after tool calls.
+                withContext(VfsContext(vfs) + UiImageSink()) {
+                    engine.runTurn(
+                        TurnConfig(
+                            client = config.client,
+                            modelIdRemote = config.modelIdRemote,
+                            reasoningEffort = config.reasoningEffort,
+                            customJsonOverride = config.customJsonOverride,
+                            maxTokens = config.maxTokens,
+                            systemPromptContent = config.systemPromptContent,
+                            perTurnPrompts = config.perTurnPrompts,
+                            conditionalPrompts = config.conditionalPrompts,
+                            toolLoadingMode = config.toolLoadingMode,
+                            maxModelRequests = config.maxModelRequests,
+                            onFetchSteerMessage = onFetchSteer,
+                        ), priorHistory, userText
+                    )
+                        .collect { ev -> handleEvent(ev) }
+                }
+                maybeGenerateTitle(sessionId, userText)
+                // QUEUE_AFTER_TURN: auto-send a queued message after the turn completes.
+                maybeDequeueAfterTurn(sessionId)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                WeLogger.e(TAG, "turn crashed", e)
+                ballState.value = BallState.ERROR
+            } finally {
+                if (ballState.value == BallState.RUNNING) ballState.value = BallState.IDLE
+                runningTurn = null
+            }
+        }
+    }
+
+    /** Dequeues and sends the queued message in QUEUE_AFTER_TURN mode once the turn finishes. */
+    private suspend fun maybeDequeueAfterTurn(sessionId: String) {
+        val msg = queuedMessage.value ?: return
+        if (sendWhileRunningMode.value != SendWhileRunningMode.QUEUE_AFTER_TURN) return
+        queuedMessage.value = null
+        runTurn(sessionId, msg)
+    }
+
+    private suspend fun handleEvent(ev: AgentEvent) = withContext(Dispatchers.Main) {
+        when (ev) {
+            is AgentEvent.RequestStarted -> {
+                // Start a fresh assistant bubble for this round.
+                appendUiRow(ChatRow(id = "a_${System.nanoTime()}", role = ChatRow.Role.ASSISTANT, text = ""))
+            }
+            is AgentEvent.TextDelta -> appendToLastAssistant(text = ev.text)
+            is AgentEvent.ReasoningDelta -> appendToLastAssistant(reasoning = ev.text)
+            is AgentEvent.ToolCallStarted ->
+                appendUiRow(ChatRow(id = "t_${ev.callId}", role = ChatRow.Role.TOOL, text = ev.argumentsJson, toolName = ev.toolName))
+            is AgentEvent.ToolAwaitingApproval -> ballState.value = BallState.PENDING_APPROVAL
+            is AgentEvent.ToolCallFinished -> updateToolRow(ev.callId, ev.status, ev.resultText)
+            is AgentEvent.UsageUpdated -> currentUsage.value = ev.usage
+            is AgentEvent.TurnCompleted -> ballState.value = BallState.IDLE
+            is AgentEvent.MaxRequestsReached -> appendSystemNote("已达到最大调用次数（${ev.cap}）。")
+            is AgentEvent.TurnFailed -> {
+                appendSystemNote("出错：${ev.error.message ?: ev.error.javaClass.simpleName}")
+                ballState.value = BallState.ERROR
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Engine assembly
+    // -----------------------------------------------------------------------------------------
+
+    private suspend fun buildEngine(sessionId: String): AgentSessionEngine {
+        val composer = PromptComposer(
+            toolLoadingMode = WeAgentSettings.toolLoadingMode(),
+            workspaceEnabled = WeAgentSettings.workspaceEnabled(),
+            memoryEnabled = WeAgentSettings.memoryEnabled(),
+            memoryIndexContent = if (WeAgentSettings.memoryEnabled()) WorkspaceStore.readMemoryIndex() else null,
+            skillCatalog = dev.ujhhgtg.wekit.agent.skill.SkillStore.enabledSkills().map { it.name to it.description },
+        )
+        val approval = ApprovalGateway(
+            manualHandler = manualApprovalHandler,
+            smallModel = resolveSmallModel(sessionId),
+        )
+        val sink = RoomHistorySink(sessionId)
+        return AgentSessionEngine(registry, approval, composer, sink)
+    }
+
+    /** Suspends the loop and surfaces a card to the overlay; resolved by [resolveApproval]. */
+    private val manualApprovalHandler = ManualApprovalHandler { pending ->
+        val deferred = CompletableDeferred<ManualApprovalResult>()
+        withContext(Dispatchers.Main) {
+            pendingApproval.value = PendingApprovalUi(pending, deferred)
+            ballState.value = BallState.PENDING_APPROVAL
+        }
+        deferred.await()
+    }
+
+    private suspend fun resolveTurnConfig(sessionId: String): TurnConfig? {
+        val session = WeAgentRepository.getSession(sessionId) ?: return null
+        val model = WeAgentRepository.getModel(session.modelId) ?: return null
+        val provider = WeAgentRepository.getDecryptedModelProvider(model.providerId) ?: return null
+        val client = runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
+        val systemPromptContent = WeAgentRepository.getSystemPromptContent(session.systemPromptId)
+        val perTurn = WeAgentRepository.getEnabledPerTurnPrompts().map { it.content }
+        val conditionals = WeAgentRepository.getEnabledConditionalPrompts()
+        val req = ModelProviderManager.buildRequest(model, emptyList(), emptyList())
+        // Gate ui-screenshot based on whether the session model declares vision support.
+        BuiltinToolProvider.visionToolsVisible = model.supportsVision
+        return TurnConfig(
+            client = client,
+            modelIdRemote = model.modelIdRemote,
+            reasoningEffort = req.reasoningEffort,
+            customJsonOverride = req.customJsonOverride,
+            maxTokens = req.maxTokens,
+            systemPromptContent = systemPromptContent,
+            perTurnPrompts = perTurn,
+            conditionalPrompts = conditionals,
+            toolLoadingMode = WeAgentSettings.toolLoadingMode(),
+            maxModelRequests = WeAgentSettings.maxModelRequests(),
+        )
+    }
+
+    /**
+     * Resolves the small model for smart-approval/title generation (§5.4). When no dedicated small
+     * model is configured ("与主模型相同"), falls back to the session's own main model so
+     * smart-approval and title generation still work instead of failing as "unconfigured".
+     */
+    private suspend fun resolveSmallModel(sessionId: String): SmallModelRef? {
+        val modelId = WeAgentSettings.smallModelId()
+            ?: WeAgentRepository.getSession(sessionId)?.modelId
+            ?: return null
+        val model = WeAgentRepository.getModel(modelId) ?: return null
+        val provider = WeAgentRepository.getDecryptedModelProvider(model.providerId) ?: return null
+        val client = runCatching { ModelProviderManager.clientFor(provider) }.getOrNull() ?: return null
+        return SmallModelRef(client, model.modelIdRemote, model.reasoningEffort, model.maxTokens)
+    }
+
+    private suspend fun firstAvailableModelId(): String? =
+        WeAgentRepository.firstModelId()
+
+    /** Generates a session title from the first user message if it's still the placeholder. */
+    private suspend fun maybeGenerateTitle(sessionId: String, firstUserText: String) {
+        val session = WeAgentRepository.getSession(sessionId) ?: return
+        if (session.title != "新对话") return
+        val small = resolveSmallModel(sessionId)
+        val title = if (small != null) {
+            runCatching { TitleGenerator.generate(small, firstUserText) }.getOrNull()
+        } else null
+        WeAgentRepository.renameSession(sessionId, title ?: firstUserText.take(10))
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Room-backed HistorySink
+    // -----------------------------------------------------------------------------------------
+
+    private class RoomHistorySink(private val sessionId: String) : AgentSessionEngine.HistorySink {
+        override suspend fun onUserMessage(content: String) {
+            WeAgentRepository.appendUserMessage(sessionId, content)
+        }
+        override suspend fun onAssistantMessage(content: String?, reasoning: String?, toolCalls: List<LlmToolCall>) {
+            WeAgentRepository.appendAssistantMessage(sessionId, content, toolCalls)
+        }
+        override suspend fun onToolResult(callId: String, toolName: String, providerId: String, argumentsJson: String, resultText: String, status: ApprovalStatus) {
+            WeAgentRepository.appendToolResult(sessionId, callId, toolName, providerId, argumentsJson, resultText, status)
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // UI-state mutation helpers (must run on Main)
+    // -----------------------------------------------------------------------------------------
+
+    private fun appendUiRow(row: ChatRow) { uiMessages.add(row) }
+
+    private fun appendToLastAssistant(text: String? = null, reasoning: String? = null) {
+        val idx = uiMessages.indexOfLast { it.role == ChatRow.Role.ASSISTANT }
+        if (idx < 0) return
+        val cur = uiMessages[idx]
+        uiMessages[idx] = cur.copy(
+            text = cur.text + (text ?: ""),
+            reasoning = if (reasoning != null) (cur.reasoning ?: "") + reasoning else cur.reasoning,
+        )
+    }
+
+    private fun updateToolRow(callId: String, status: ApprovalStatus, resultText: String) {
+        val idx = uiMessages.indexOfLast { it.id == "t_$callId" }
+        if (idx < 0) return
+        uiMessages[idx] = uiMessages[idx].copy(text = resultText, toolStatus = status)
+    }
+
+    private fun appendSystemNote(text: String) {
+        uiMessages.add(ChatRow(id = "s_${System.nanoTime()}", role = ChatRow.Role.SYSTEM_NOTE, text = text))
+    }
+}

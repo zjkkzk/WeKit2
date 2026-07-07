@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.batch
 import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.material3.Text
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
@@ -28,7 +27,7 @@ import kotlinx.coroutines.withContext
 )
 object BatchDeleteChatHistory : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "BatchDeleteChatHistory"
 
     override val noSwitchWidget = true
 

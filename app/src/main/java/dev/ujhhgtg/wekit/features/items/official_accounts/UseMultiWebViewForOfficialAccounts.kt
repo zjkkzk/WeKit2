@@ -2,7 +2,6 @@ package dev.ujhhgtg.wekit.features.items.official_accounts
 
 import android.content.Intent
 import de.robv.android.xposed.XC_MethodHook
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -14,7 +13,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 )
 object UseMultiWebViewForOfficialAccounts : SwitchFeature(), WeStartActivityApi.IStartActivityListener {
 
-    private val tag = This.Class.simpleName
+    private const val tag = "UseMultiWebViewForOfficialAccounts"
 
     override fun onEnable() {
         WeStartActivityApi.addListener(this)

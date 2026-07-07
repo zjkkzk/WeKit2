@@ -1,11 +1,10 @@
 package dev.ujhhgtg.wekit.loader.utils
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.utils.reflection.ClassLoaders
 
 object HybridClassLoader : ClassLoader(ClassLoaders.BOOT) {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "HybridClassLoader"
 
     private val bootClassLoader = ClassLoaders.BOOT
     lateinit var moduleParentClassLoader: ClassLoader

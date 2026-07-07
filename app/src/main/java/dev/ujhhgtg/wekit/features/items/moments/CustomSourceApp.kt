@@ -17,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -35,7 +34,7 @@ import java.util.LinkedList
 @Feature(name = "自定义尾巴", categories = ["朋友圈"], description = "自定义发表朋友圈显示的应用来源")
 object CustomSourceApp : ClickableFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "CustomSourceApp"
 
     private data class SourceApp(val appId: String, val appName: String)
 

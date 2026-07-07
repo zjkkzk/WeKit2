@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
 import androidx.compose.material3.Text
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsApi
 import dev.ujhhgtg.wekit.features.api.ui.WeMomentsContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
@@ -25,7 +24,7 @@ import kotlin.io.path.div
 @Feature(name = "转发 & 一键转发", categories = ["朋友圈"], description = "转发他人的朋友圈, 支持实况图片\n如果图片/视频/实况转发后是空白, 请点击查看/播放后重试")
 object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ReMoment"
 
     override fun onEnable() {
         WeMomentsContextMenuApi.addProvider(this)

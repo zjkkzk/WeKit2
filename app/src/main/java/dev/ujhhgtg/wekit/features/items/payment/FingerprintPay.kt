@@ -27,12 +27,10 @@ import com.composables.icons.materialsymbols.outlinedfilled.Visibility
 import com.composables.icons.materialsymbols.outlinedfilled.Visibility_off
 import com.tencent.mm.plugin.fingerprint.ui.FingerPrintAuthTransparentUI
 import com.tenpay.android.wechat.MyKeyboardWindow
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -50,16 +48,12 @@ import dev.ujhhgtg.wekit.utils.nul
 @Feature(name = "指纹支付", categories = ["红包与支付"], description = "使用指纹快捷确认支付")
 object FingerprintPay : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "FingerprintPay"
     private var encryptedData by prefOption("payment_pswd_encdata", nul<String>())
 
     private const val SPLIT_CHAR = ':'
 
-    override fun startup() {
-        if (TargetProcesses.currentType != TargetProcesses.PROC_MAIN && TargetProcesses.currentType != TargetProcesses.PROC_APPBRAND) return
-        _isEnabled = WePrefs.getBoolOrFalse(name)
-        if (_isEnabled) enable()
-    }
+    override val shouldLoadInCurrentProcess get() = TargetProcesses.isInMain || TargetProcesses.currentType == TargetProcesses.PROC_APPBRAND
 
     override fun onEnable() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
@@ -189,15 +183,17 @@ object FingerprintPay : ClickableFeature() {
             })
     }
 
-    @RequiresApi(Build.VERSION_CODES.R)
-    private val promptInfo = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("验证")
-        .setSubtitle("验证指纹或密码以加解密支付密码")
-        .setAllowedAuthenticators(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        )
-        .build()
+    @get:RequiresApi(Build.VERSION_CODES.R)
+    private val promptInfo by lazy {
+        BiometricPrompt.PromptInfo.Builder()
+            .setTitle("验证")
+            .setSubtitle("验证指纹或密码以加解密支付密码")
+            .setAllowedAuthenticators(
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            )
+            .build()
+    }
 
     // --- ENCRYPT ---
     @RequiresApi(Build.VERSION_CODES.R)
@@ -243,22 +239,6 @@ object FingerprintPay : ClickableFeature() {
             showToast("捕获到未处理的异常! 请向模块作者报告问题")
             WeLogger.e(TAG, "unhandled exception", e)
             return
-        }
-        val action: FragmentActivity.() -> Unit = {
-            buildPrompt(this) { result ->
-                val authorizedCipher = result.cryptoObject?.cipher ?: run {
-                    showToast("指纹验证成功, 但无法获取密文对象! 请向模块作者报告问题")
-                    return@buildPrompt
-                }
-                val plaintext = runCatching {
-                    CryptoManager.decrypt(encryptedData, authorizedCipher)
-                }.getOrElse {
-                    WeLogger.e(TAG, "failed to decrypt", it)
-                    showToast(context, "解密失败! 请向模块作者报告问题")
-                    return@buildPrompt
-                }
-                onSuccess(plaintext)
-            }.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
         }
         TransparentActivity.launch(context) {
             buildPrompt(this) { result ->

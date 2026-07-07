@@ -1,23 +1,29 @@
 package dev.ujhhgtg.wekit.features.api.core
 
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.createInstance
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.hideConversation
+import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.methodBuildModContactOplog
+import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.methodSetDnd
+import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.methodSetNoDnd
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi.reloadConversations
+import dev.ujhhgtg.wekit.features.api.net.WePacketHelper
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLog
+import dev.ujhhgtg.wekit.features.api.net.models.protobuf.OpLogRespProto
 import dev.ujhhgtg.wekit.features.core.ApiFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.runOnUiThread
+import java.lang.reflect.Modifier
 
 @Feature(name = "对话服务", categories = ["API"], description = "提供对话管理能力")
 object WeConversationApi : ApiFeature(), IResolveDex {
 
-    private val TAG = nameOf(WeConversationApi)
+    private const val TAG = "WeConversationApi"
 
     // Clears 4096, 1048576, 16777216 and 33554432, which drive 8071/8072 red prefixes
 //    private const val ATTR_FLAG_COMMON_RED_BITS = 51384320
@@ -114,6 +120,18 @@ object WeConversationApi : ApiFeature(), IResolveDex {
     private val methodSetNoDnd by dexMethod {
         matcher {
             usingEqStrings("MicroMsg.OpenImOpLogLogic", "OpenImOpLogLogic OpenIMModContactMuteOplog username:%s switch cancel")
+        }
+    }
+
+    // ContactStorageLogic.toModContactOplog(z3) -> the `tn4` modContact proto WeChat sends as
+    // oplog cmd 2 to sync a contact's flags (mute/top/...) to the server. Reusing WeChat's own
+    // builder guarantees the ~80-field proto (including BitMask/BitVal and remark) is byte-perfect.
+    private val methodBuildModContactOplog by dexMethod {
+        matcher {
+            usingEqStrings(
+                "MicroMsg.ContactStorageLogic",
+                "oplog modContact user:%s remark:%s BitVal:%d BitValue2:%s isInConvBox:%s isTop:%s isMute:%s"
+            )
         }
     }
     private val methodNotifyConversationChanged by dexMethod(allowFailure = true) {
@@ -432,34 +450,92 @@ object WeConversationApi : ApiFeature(), IResolveDex {
         setConversationsVisibility(visible, talkers.toTypedArray())
     }
 
-    fun onlyShowFilteredConversations(queryFilter: String, selectedColumns: String = "username") {
-        setAllConversationVisibility(false)
-        setFilteredConversationsVisibility(true, queryFilter, selectedColumns)
-    }
+//    fun onlyShowFilteredConversations(queryFilter: String, selectedColumns: String = "username") {
+//        setAllConversationVisibility(false)
+//        setFilteredConversationsVisibility(true, queryFilter, selectedColumns)
+//    }
 
-    fun setFilteredConversationsVisibility(visible: Boolean, queryFilter: String, selectedColumns: String = "username") {
-        val cursor = WeDatabaseApi.rawQuery("SELECT $selectedColumns FROM rconversation $queryFilter")
-        val talkers = mutableListOf<String>()
-        while (cursor.moveToNext()) {
-            talkers += cursor.getString(0)
-        }
-        cursor.close()
-        setConversationsVisibility(visible, talkers.toTypedArray())
-    }
+//    fun setFilteredConversationsVisibility(visible: Boolean, queryFilter: String, selectedColumns: String = "username") {
+//        val cursor = WeDatabaseApi.rawQuery("SELECT $selectedColumns FROM rconversation $queryFilter")
+//        val talkers = mutableListOf<String>()
+//        while (cursor.moveToNext()) {
+//            talkers += cursor.getString(0)
+//        }
+//        cursor.close()
+//        setConversationsVisibility(visible, talkers.toTypedArray())
+//    }
 
     private lateinit var contactType: Class<*>
 
-    // TODO: this only updates local DB without syncing to server
-    fun setIfNotifyNewMessages(convId: String, shouldNotify: Boolean) {
+    /** ContactStorageLogic (`e2`), the class that owns the DND setters and the modContact builder. */
+    private val contactStorageLogic: Class<*> by lazy { methodSetDnd.method.declaringClass }
+
+    /**
+     * Toggle "消息免打扰" for [convId] and sync it to the server.
+     *
+     * WeChat stores the mute state as a bit on the contact's `type` and normally syncs it via a
+     * modContact `oplog` (cmd 2). The native DND setters ([methodSetDnd]/[methodSetNoDnd]) update
+     * the local DB, but they enqueue that oplog onto WeChat's batched coroutine oplog queue, which
+     * doesn't reliably flush from an injected context — so the change stayed local-only. Here we
+     * still call the native setter (it applies the bit to the DB and refreshes the conversation
+     * list, handling the OpenIM/biz edge cases), then re-read the mutated contact and send the
+     * modContact oplog **directly** through [WePacketHelper] — the same reliable path
+     * [WeContactApi.deleteContact] uses. The modContact proto is built by WeChat's own
+     * [methodBuildModContactOplog] so its ~80 fields (BitMask/BitVal + remark) stay byte-perfect.
+     */
+    fun setDoNotDisturb(convId: String, dnd: Boolean) {
         if (!::contactType.isInitialized) {
             contactType = methodSetDnd.method.parameterTypes[0]
         }
 
-        val contact = contactType.createInstance(convId)
-        if (!shouldNotify) {
-            methodSetDnd.method.invoke(null, contact, true)
+        // 1. Apply the mute bit locally via WeChat's own logic (also refreshes the UI + queues the
+        //    native oplog; the redundant native queue is harmless since modContact is idempotent).
+        val stub = contactType.createInstance(convId)
+        if (dnd) {
+            methodSetDnd.method.invoke(null, stub, true)
         } else {
-            methodSetNoDnd.method.invoke(null, contact, true)
+            methodSetNoDnd.method.invoke(null, stub, true)
         }
+
+        // 2. Send the modContact oplog directly so the change actually reaches the server.
+        try {
+            val contact = fetchContact(convId)
+            if (contact == null) {
+                WeLogger.w(TAG, "modContact sync skipped: no contact for $convId")
+                return
+            }
+            val protoBytes = methodBuildModContactOplog.method.invoke(null, contact)
+                ?.reflekt()?.invokeMethod("toByteArray", superclass = true) as? ByteArray
+            if (protoBytes == null) {
+                WeLogger.w(TAG, "modContact sync skipped: proto build failed for $convId")
+                return
+            }
+
+            WePacketHelper.sendCgiRaw(
+                "/cgi-bin/micromsg-bin/oplog", 681, 0, 0,
+                OpLog.encodeRequest(listOf(OpLog.operationRaw(OpLog.CMD_MOD_CONTACT, protoBytes)))
+            ) {
+                onSuccess { bytes ->
+                    val ret = bytes?.let { OpLogRespProto.decode(it).ret }
+                    WeLogger.i(TAG, "modContact sync for $convId (dnd=$dnd): ret=$ret")
+                }
+                onFailure { type, code, msg ->
+                    WeLogger.w(TAG, "modContact sync for $convId failed: $type, $code, $msg")
+                }
+            }
+        } catch (ex: Exception) {
+            WeLogger.e(TAG, "exception while syncing modContact for $convId", ex)
+        }
+    }
+
+    /** Fetch the fully-populated contact ([com.tencent.mm.storage.z3]) for [convId], or null. */
+    private fun fetchContact(convId: String): Any? {
+        return contactStorageLogic.reflekt()
+            .firstMethodOrNull {
+                modifiers = Modifier.STATIC
+                parameters(String::class.java)
+                returnType(contactType)
+            }
+            ?.invoke(null, convId)
     }
 }

@@ -3,7 +3,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 import android.app.Activity
 import android.view.View
 import androidx.compose.material3.Text
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi

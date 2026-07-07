@@ -64,7 +64,6 @@ import com.composables.icons.materialsymbols.outlined.Check
 import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Swap_vert
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
@@ -101,6 +100,17 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
 
     const val GROUP_PREFIX = "wekit_group_"
 
+    // The fixed "全部" tab. It behaves like a group for ordering purposes — it can be dragged to any
+    // position and that position is persisted alongside the real groups — but it can never be
+    // edited or deleted, and selecting it applies no filter (null predicate). It's stored as an
+    // ordinary ChatGroup entry (identified solely by this id) so the list order is enough to
+    // remember where it sits.
+    private val ALL_TAB_ID = "${GROUP_PREFIX}all"
+
+    private fun isAllTab(id: String?): Boolean = id == ALL_TAB_ID
+
+    private fun allTab(): ChatGroup = ChatGroup(id = ALL_TAB_ID, name = "全部")
+
     // The SQL predicate for the currently selected tab, injected into WeChat's homepage
     // conversation-list query. null = "全部" (no filtering). We resolve the predicate once, when the
     // tab is tapped (on the main thread), so the query hook itself never runs nested DB reads while
@@ -133,7 +143,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
 
                 // These values get lost when ComposeView becomes invisible, so we have to lift them
                 // out of the Composable.
-                val selectedGroupIdState = mutableStateOf<String?>(null)
+                val selectedGroupIdState = mutableStateOf(ALL_TAB_ID)
                 val groupsState = mutableStateOf(loadGroups())
                 setContent {
                     InjectedUiTheme {
@@ -164,8 +174,8 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                     onGroupDeleted = {
                                         groups = loadGroups()
                                         if (selectedGroupId == group.id) {
-                                            selectedGroupId = null
-                                            selectTab(null)
+                                            selectedGroupId = ALL_TAB_ID
+                                            selectTab(ALL_TAB_ID)
                                         }
                                     }
                                 )
@@ -174,8 +184,8 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                 saveGroups(loadGroups().filterNot { it.id == group.id })
                                 groups = loadGroups()
                                 if (selectedGroupId == group.id) {
-                                    selectedGroupId = null
-                                    selectTab(null)
+                                    selectedGroupId = ALL_TAB_ID
+                                    selectTab(ALL_TAB_ID)
                                 }
                                 showToast("已删除「${group.name}」")
                             },
@@ -200,7 +210,12 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         // Resolve the predicate here, on the main thread, NOT inside the query hook: preset/SQL
         // groups need a DB read to materialize their member list, and doing that while WeChat is
         // already running the list query would nest reads on the same path.
-        activePredicate = groupId?.let { buildGroupPredicate(groupById(it)) }
+        // The "全部" tab (or a null id) applies no filter.
+        activePredicate = if (groupId == null || isAllTab(groupId)) {
+            null
+        } else {
+            buildGroupPredicate(groupById(groupId))
+        }
         // No DB writes: reloadConversations re-runs the list query on the main thread, and our
         // query hook injects the new filter, so the visible rows change without touching any row.
         WeConversationApi.reloadConversations()
@@ -288,7 +303,7 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
         return "$head$connector$condition$tail"
     }
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ConversationGrouping"
 
     private val methodOnTabCreate by dexMethod {
         matcher {
@@ -316,8 +331,8 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
     @Composable
     private fun ConversationTabs(
         groups: List<ChatGroup>,
-        selectedGroupId: String?,
-        onTabSelected: (String?) -> Unit,
+        selectedGroupId: String,
+        onTabSelected: (String) -> Unit,
         onCreateGroup: () -> Unit,
         onEditGroup: (ChatGroup) -> Unit,
         onDeleteGroup: (ChatGroup) -> Unit,
@@ -361,17 +376,8 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Fixed "全部" tab — always present, not editable / deletable.
-                    item(key = "__all__") {
-                        GroupTab(
-                            label = "全部",
-                            selected = selectedGroupId == null,
-                            onClick = { onTabSelected(null) },
-                            onLongClick = { }
-                        )
-                    }
-
                     items(orderedGroups, key = { it.id }) { group ->
+                        val allTab = isAllTab(group.id)
                         Box {
                             GroupTab(
                                 label = group.name,
@@ -384,20 +390,23 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                 expanded = menuForGroupId == group.id,
                                 onDismissRequest = { menuForGroupId = null }
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text("编辑") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = MaterialSymbols.Outlined.Edit,
-                                            contentDescription = "编辑",
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        menuForGroupId = null
-                                        onEditGroup(group)
-                                    }
-                                )
+                                // The fixed "全部" tab can be reordered but never edited or deleted.
+                                if (!allTab) {
+                                    DropdownMenuItem(
+                                        text = { Text("编辑") },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = MaterialSymbols.Outlined.Edit,
+                                                contentDescription = "编辑",
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        },
+                                        onClick = {
+                                            menuForGroupId = null
+                                            onEditGroup(group)
+                                        }
+                                    )
+                                }
                                 DropdownMenuItem(
                                     text = { Text("排序") },
                                     leadingIcon = {
@@ -413,20 +422,22 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                                         sortMode = true
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("删除") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = MaterialSymbols.Outlined.Delete,
-                                            contentDescription = "删除",
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    },
-                                    onClick = {
-                                        menuForGroupId = null
-                                        onDeleteGroup(group)
-                                    }
-                                )
+                                if (!allTab) {
+                                    DropdownMenuItem(
+                                        text = { Text("删除") },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = MaterialSymbols.Outlined.Delete,
+                                                contentDescription = "删除",
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        },
+                                        onClick = {
+                                            menuForGroupId = null
+                                            onDeleteGroup(group)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -1079,20 +1090,25 @@ object ConversationGrouping : SwitchFeature(), IResolveDex {
                 .map { group ->
                     group.copy(members = group.members.filter { it.isNotBlank() })
                 }
-                .filter { isGroupId(it.id) && it.name.isNotBlank() }
+                .filter { (isGroupId(it.id) || isAllTab(it.id)) && it.name.isNotBlank() }
         }.onFailure {
             WeLogger.w(TAG, "failed to decode groups config from $groupsFile", it)
         }.getOrDefault(emptyList())
-        groupsCache = groups
-        return groups
+        // Guarantee the fixed "全部" tab is present. Configs written before this tab was orderable
+        // won't contain it, so inject it at the front; once the user reorders, its slot persists.
+        val withAll = if (groups.any { isAllTab(it.id) }) groups else listOf(allTab()) + groups
+        groupsCache = withAll
+        return withAll
     }
 
     // The groups seeded on first run, matching the tabs this feature used to hardcode
     // (minus 全部, which is the fixed non-deletable tab, and 好友).
     private fun defaultGroups(): List<ChatGroup> {
-        // Distinct ids so each row is independently editable / deletable.
+        // Distinct ids so each row is independently editable / deletable. The fixed "全部" tab leads
+        // by default but can be dragged elsewhere.
         val base = System.currentTimeMillis()
         return listOf(
+            allTab(),
             ChatGroup(id = "$GROUP_PREFIX${base}", name = "未读", type = GroupType.PRESET_UNREAD),
             ChatGroup(id = "$GROUP_PREFIX${base + 1}", name = "群聊", type = GroupType.PRESET_GROUPS),
             ChatGroup(id = "$GROUP_PREFIX${base + 2}", name = "公众号", type = GroupType.PRESET_OFFICIALS)

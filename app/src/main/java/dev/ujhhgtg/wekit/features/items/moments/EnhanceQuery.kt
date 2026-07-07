@@ -1,6 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.moments
 
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
@@ -9,7 +8,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 @Feature(name = "朋友圈查询增强", categories = ["朋友圈"], description = "显示历史撤回以及缓存过的朋友圈内容")
 object EnhanceQuery : SwitchFeature(), WeDatabaseListenerApi.IQueryListener {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "EnhanceQuery"
 
     override fun onEnable() {
         WeDatabaseListenerApi.addListener(this)

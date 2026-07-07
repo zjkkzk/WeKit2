@@ -2,6 +2,8 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Edit
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
@@ -26,7 +28,7 @@ object QuickRevokeAndEdit : SwitchFeature(), WeChatMessageContextMenuApi.IMenuIt
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
-                777016, "编辑", EditIcon,
+                777016, "编辑", EditIcon, MaterialSymbols.Outlined.Edit,
                 shouldShow = {
                     @Suppress("DEPRECATION")
                     it.type == MessageType.TEXT

@@ -34,7 +34,7 @@ object KnownPaths {
     }
 
     val downloads by lazy {
-        (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toPath() / "WeKit")
+        (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toPath() / BuildConfig.TAG)
             .createDirsSafe()
     }
 }

@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import android.app.Activity
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi
 import dev.ujhhgtg.wekit.features.api.ui.WeContactPrefsScreenApi.IContactInfoProvider
@@ -25,7 +24,7 @@ import kotlinx.coroutines.launch
 )
 object DisplayGroupMemberInviter : SwitchFeature(), IContactInfoProvider {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "DisplayGroupMemberInviter"
 
     private const val PREF_KEY = "member_inviter"
 

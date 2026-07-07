@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.postDelayed
 import coil3.load
 import coil3.request.crossfade
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.constants.PackageNames
@@ -57,11 +56,11 @@ import kotlin.math.roundToInt
 )
 object ApplyGlobalBackground : ClickableFeature() {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "ApplyGlobalBackground"
 
     private var backgroundUri by prefOption("global_bg_uri", nul<String>())
     private var transparentStatusBar by prefOption("global_bg_transparent_status_bar", false)
-    private var opacity by prefOption("global_bg_opacity", 0.35f)
+    private var opacity by prefOption("global_bg_opacity", 0.10f)
 
     private const val OVERLAY_TAG = "wekit_global_bg_overlay"
     private const val APPLIED_URI_TAG_KEY = 0x55020001
@@ -128,6 +127,11 @@ object ApplyGlobalBackground : ClickableFeature() {
         }
     }
 
+    private const val MIN = 0.01f
+    private const val MAX = 0.80f
+    private val MINIMAX = MIN..MAX
+    private fun Float.miniMaxed() = this.coerceIn(MINIMAX)
+
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var hasImage by remember { mutableStateOf(backgroundUri != null) }
@@ -151,7 +155,7 @@ object ApplyGlobalBackground : ClickableFeature() {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(onClick = {
-                                opacity = opacityInput.coerceIn(0.01f, 1f)
+                                opacity = opacityInput.miniMaxed()
                                 transparentStatusBar = transparentStatusBarInput
                                 onDismiss()
                                 selectBackgroundImage(context)
@@ -175,8 +179,8 @@ object ApplyGlobalBackground : ClickableFeature() {
                         )
                         Slider(
                             value = opacityInput,
-                            onValueChange = { opacityInput = it.coerceIn(0.01f, 1f) },
-                            valueRange = 0f..1f
+                            onValueChange = { opacityInput = it.miniMaxed() },
+                            valueRange = MINIMAX
                         )
                         ListItem(
                             headlineContent = { Text("状态栏背景透明") },
@@ -198,7 +202,7 @@ object ApplyGlobalBackground : ClickableFeature() {
                 },
                 confirmButton = {
                     Button(onClick = {
-                        opacity = opacityInput.coerceIn(0.01f, 1f)
+                        opacity = opacityInput.miniMaxed()
                         transparentStatusBar = transparentStatusBarInput
                         showToast("已保存, 重启微信生效")
                         onDismiss()

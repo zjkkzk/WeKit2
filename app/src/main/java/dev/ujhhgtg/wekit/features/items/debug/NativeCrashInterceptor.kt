@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.debug
 
 import com.tencent.mm.ui.LauncherUI
-import dev.ujhhgtg.comptime.nameOf
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -13,7 +12,7 @@ import dev.ujhhgtg.wekit.utils.crash.NativeCrashHandler
 @Feature(name = "崩溃拦截 (Native)", categories = ["调试"], description = "拦截 Native 层崩溃并记录详细信息，支持查看和导出日志")
 object NativeCrashInterceptor : SwitchFeature() {
 
-    private val TAG = nameOf(NativeCrashInterceptor)
+    private const val TAG = "NativeCrashInterceptor"
 
     override fun onEnable() {
         if (!NativeCrashHandler.install()) {

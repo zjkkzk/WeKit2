@@ -1,7 +1,6 @@
 package dev.ujhhgtg.wekit.features.api.ui
 
 import android.content.Context
-import dev.ujhhgtg.comptime.This
 import dev.ujhhgtg.reflekt.Reflect
 import dev.ujhhgtg.reflekt.reflekt
 import dev.ujhhgtg.reflekt.utils.Modifiers
@@ -44,7 +43,7 @@ import kotlin.io.path.div
 )
 object WeMomentsApi : ApiFeature(), IResolveDex {
 
-    private val TAG = This.Class.simpleName
+    private const val TAG = "WeMomentsApi"
 
     data class ActionResult(
         val success: Boolean,
