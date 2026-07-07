@@ -15,12 +15,9 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
-import dev.ujhhgtg.wekit.utils.fs.asPath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.div
 
 @Feature(name = "转发 & 一键转发", categories = ["朋友圈"], description = "转发他人的朋友圈, 支持实况图片\n如果图片/视频/实况转发后是空白, 请点击查看/播放后重试")
 object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
@@ -86,19 +83,25 @@ object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
                 WeMomentsApi.sendImagesInUi(activity, tempPaths, contentText)
             }
             15, 5 -> { // 视频
-                val videoPath = WeMomentsApi.fetchVideoPath(data.nativeMediaList)
-                if (videoPath == null) {
-                    showToast(activity, "未找到本地缓存的视频, 请播放一次后再转发!")
-                    return
-                }
+                showToast(activity, "正在准备视频...")
+                CoroutineScope(Dispatchers.Main).launch {
+                    val video = WeMomentsApi.ensureVideoPaths(activity, data)
+                    if (video == null) {
+                        showToastSuspend(activity, "视频下载失败或超时")
+                        return@launch
+                    }
 
-                val tempVideo = activity.externalCacheDir!!.asPath / "wekit_repost_${System.currentTimeMillis()}.mp4"
-                val tempPath = tempVideo.absolutePathString()
-
-                if (WeMomentsApi.copyVfsFile(videoPath, tempPath)) {
-                    WeMomentsApi.sendVideoInUi(activity, tempPath, contentText)
-                } else {
-                    showToast("视频文件准备失败!")
+                    WeLogger.i(TAG, "forward video to editor: video=${video.videoPath}, thumb=${video.thumbPath}")
+                    val albumVideoPath = WeMomentsApi.saveVideoToAlbumPath(activity, video.videoPath)
+                    if (albumVideoPath == null) {
+                        showToastSuspend(activity, "视频保存到相册失败")
+                        return@launch
+                    }
+                    WeLogger.i(TAG, "dispatch video album result: video=$albumVideoPath")
+                    if (!WeMomentsApi.openMomentVideoEditorFromAlbumResult(activity, contentText, albumVideoPath)) {
+                        showToastSuspend(activity, "视频自动选择失败, 已打开微信视频发布页")
+                        WeMomentsApi.sendVideoInUi(activity, albumVideoPath, video.thumbPath, contentText)
+                    }
                 }
             }
             else -> { // 文字
@@ -149,7 +152,11 @@ object ReMoment : SwitchFeature(), WeMomentsContextMenuApi.IMenuItemsProvider {
         showToast(activity, "正在一键转发...")
 
         CoroutineScope(Dispatchers.Main).launch {
-            val result = WeMomentsApi.quickForward(data)
+            val result = if (data.type == 15 || data.type == 5) {
+                WeMomentsApi.quickForwardEnsuringCached(data)
+            } else {
+                WeMomentsApi.quickForward(data)
+            }
             showToastSuspend(activity, result.message)
         }
     }
