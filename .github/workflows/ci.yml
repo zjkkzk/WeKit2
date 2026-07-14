@@ -63,7 +63,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          workspaces: app/src/main/rust/wekit-native -> target
+          workspaces: . -> target
 
       - name: Cache Gradle build cache
         uses: actions/cache@v6
@@ -78,6 +78,11 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt install -y gcc-multilib
+
+      - name: Build native library
+        run: |
+          cargo xtask configure
+          cargo xtask build --native-only
 
       - name: Decode keystore
         if: github.event_name != 'pull_request'

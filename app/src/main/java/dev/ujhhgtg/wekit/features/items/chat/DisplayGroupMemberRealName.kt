@@ -87,22 +87,25 @@ object DisplayGroupMemberRealName : ApiFeature(), WeChatMessageViewApi.ICreateVi
         // Stamp sender so the async callback can detect recycled views
         textView.setTag(VIEW_TAG_SENDER, sender)
 
-        val firstChar = BruteForceGroupMemberRealNamesFirstChar.realNames[sender]
-        val lastChar = DisplayGroupMemberRealNamesLastChar.realNames[sender]
+        val firstChar = BruteForceGroupMemberRealNamesFirstChar
+            .takeIf { it.isActive }?.realNames?.get(sender)
+        val lastChar = DisplayGroupMemberRealNamesLastChar
+            .takeIf { it.isActive }?.realNames?.get(sender)
 
         // Apply whatever is already cached immediately
         applyAnnotation(textView, sender, firstChar, lastChar)
 
-        // If the last char is not yet known, request a background fetch.
-        // The callback posts back to the main thread and updates the view if it still
+        // If the last char is not yet known and the feature is enabled, request a background
+        // fetch. The callback posts back to the main thread and updates the view if it still
         // belongs to the same sender (i.e. has not been recycled in the meantime).
-        if (lastChar == null) {
+        if (lastChar == null && DisplayGroupMemberRealNamesLastChar.isActive) {
             DisplayGroupMemberRealNamesLastChar.fetchRealName(sender, msgInfo.talker) { newLastChar ->
                 mainHandler.post {
                     if (textView.getTag(VIEW_TAG_SENDER) == sender) {
                         applyAnnotation(
                             textView, sender,
-                            BruteForceGroupMemberRealNamesFirstChar.realNames[sender],
+                            BruteForceGroupMemberRealNamesFirstChar
+                                .takeIf { it.isActive }?.realNames?.get(sender),
                             newLastChar
                         )
                     }

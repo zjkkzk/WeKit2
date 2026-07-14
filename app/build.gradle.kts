@@ -1,4 +1,3 @@
-import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
@@ -35,18 +34,6 @@ android {
 
     val commitCount = getCommitCount()
     val gitHash = getGitHash()
-
-    logger.lifecycle(
-        """
-             _       __     __ __ _ __
-            | |     / /__  / //_/(_) /_
-            | | /| / / _ \/ ,<  / / __/
-            | |/ |/ /  __/ /| |/ / /_
-            |__/|__/\___/_/ |_/_/\__/
-
-       [WeKit] WeChat, now with superpowers
-        """
-    )
 
     defaultConfig {
         applicationId = libs.versions.namespace.get()
@@ -244,57 +231,6 @@ val generateMethodHashes = tasks.register<GenerateMethodHashesTask>("generateMet
     outputDir.set(layout.buildDirectory.dir("generated/source/methodhashes"))
     namespace.set(libs.versions.namespace.get())
 }
-
-val rustProjectDir = file("src/main/rust/wekit-native")
-val rustLibName = "libwekit_native.so"
-
-val abiToTarget = mapOf(
-    "arm64-v8a" to "aarch64-linux-android",
-    "armeabi-v7a" to "armv7-linux-androideabi",
-//    "x86_64" to "x86_64-linux-android",
-//    "x86" to "i686-linux-android"
-)
-val cargoTasks = abiToTarget.map { (abi, target) ->
-    val soSrcFile = rustProjectDir.resolve("target/$target/release/$rustLibName")
-    val soDestDir = layout.projectDirectory.dir("src/main/jniLibs/$abi").asFile
-    val currentLibName = rustLibName
-
-    tasks.register<Exec>("cargoBuild_${abi.replace('-', '_')}") {
-        group = "rust"
-        description = "Compile Rust for $abi"
-        workingDir = rustProjectDir
-        commandLine = listOf(
-            "cargo", "build",
-            "--release",
-            "--target", target,
-        )
-
-        doLast {
-            soDestDir.mkdirs()
-            soSrcFile.copyTo(soDestDir.resolve(currentLibName), overwrite = true)
-        }
-    }
-}
-
-tasks.matching { it.name.startsWith("merge") && it.name.endsWith("JniLibFolders") }
-    .configureEach { cargoTasks.forEach { t -> dependsOn(t) } }
-
-val configureCargo = tasks.register<ConfigureCargoTask>("configureCargo") {
-    group = "wekit"
-    description = "Generate .cargo/config.toml"
-
-    val home = gradleLocalProperties(rootDir, providers).getProperty("sdk.dir")
-        ?: System.getenv("ANDROID_HOME")
-        ?: error("ANDROID_HOME / sdk.dir not set")
-
-    androidHome.set(home)
-    minSdk.set(libs.versions.minSdk.get().toInt())
-    outputFile.set(rustProjectDir.resolve(".cargo/config.toml"))
-
-    outputs.upToDateWhen { outputFile.get().asFile.exists() }
-}
-
-cargoTasks.forEach { t -> t.configure { dependsOn(configureCargo) } }
 
 // --- end tasks ---
 

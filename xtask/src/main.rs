@@ -165,14 +165,29 @@ enum Flavor {
 
 // ── Entry point ────────────────────────────────────────────────────────────────
 
+fn print_banner() {
+    println!(
+        r#"
+     _       __     __ __ _ __
+    | |     / /__  / //_/(_) /_
+    | | /| / / _ \/ ,<  / / __/
+    | |/ |/ /  __/ /| |/ / /_
+    |__/|__/\___/_/ |_/_/\__/
+
+[WeKit] WeChat, now with superpowers
+"#
+    );
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    print_banner();
     match cli.command {
-        Cmd::Configure        => task_configure()?,
-        Cmd::Build(args)      => task_build(args)?,
-        Cmd::Run(args)        => task_run(args)?,
-        Cmd::Check(args)      => task_cargo_cmd("check",  &args.abis, &[])?,
-        Cmd::Clippy(args)     => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
+        Cmd::Configure => task_configure()?,
+        Cmd::Build(args) => task_build(args)?,
+        Cmd::Run(args) => task_run(args)?,
+        Cmd::Check(args) => task_cargo_cmd("check", &args.abis, &[])?,
+        Cmd::Clippy(args) => task_cargo_cmd("clippy", &args.abis, &["--", "-D", "warnings"])?,
     }
     Ok(())
 }
@@ -311,10 +326,7 @@ fn find_ndk_bin_dir(android_home: &str) -> Result<String> {
         .join("bin");
 
     if !bin_dir.exists() {
-        bail!(
-            "expected NDK bin dir not found: {}",
-            bin_dir.display()
-        );
+        bail!("expected NDK bin dir not found: {}", bin_dir.display());
     }
 
     Ok(bin_dir.to_string_lossy().replace('\\', "/"))
@@ -323,11 +335,11 @@ fn find_ndk_bin_dir(android_home: &str) -> Result<String> {
 /// Return the prebuilt host tag used by the NDK (e.g. `linux-x86_64`).
 fn host_prebuilt_tag() -> Result<&'static str> {
     match (env::consts::OS, env::consts::ARCH) {
-        ("linux",   "x86_64")  => Ok("linux-x86_64"),
-        ("linux",   "aarch64") => Ok("linux-aarch64"),
-        ("macos",   "x86_64")  => Ok("darwin-x86_64"),
-        ("macos",   "aarch64") => Ok("darwin-arm64"),
-        ("windows", "x86_64")  => Ok("windows-x86_64"),
+        ("linux", "x86_64") => Ok("linux-x86_64"),
+        ("linux", "aarch64") => Ok("linux-aarch64"),
+        ("macos", "x86_64") => Ok("darwin-x86_64"),
+        ("macos", "aarch64") => Ok("darwin-arm64"),
+        ("windows", "x86_64") => Ok("windows-x86_64"),
         (os, arch) => bail!("unsupported host OS/arch: {os}/{arch}"),
     }
 }
@@ -340,7 +352,11 @@ fn task_configure() -> Result<()> {
     let ndk_bin_dir = find_ndk_bin_dir(&android_home)?;
 
     // On Windows the NDK ships `.cmd` wrappers for the clang binaries.
-    let ext = if cfg!(target_os = "windows") { ".cmd" } else { "" };
+    let ext = if cfg!(target_os = "windows") {
+        ".cmd"
+    } else {
+        ""
+    };
     let ar = format!("{ndk_bin_dir}/llvm-ar");
 
     let mut out = String::new();
@@ -357,9 +373,9 @@ fn task_configure() -> Result<()> {
     // [env] section — CC/CXX/AR vars consumed by `cc-rs` and `bindgen`.
     out.push_str("[env]\n");
     for spec in ABI_TABLE {
-        let cc  = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang{ext}",   spec.clang_prefix);
+        let cc = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang{ext}", spec.clang_prefix);
         let cxx = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang++{ext}", spec.clang_prefix);
-        out.push_str(&format!("CC_{k} = \"{cc}\"\n",  k = spec.env_key));
+        out.push_str(&format!("CC_{k} = \"{cc}\"\n", k = spec.env_key));
         out.push_str(&format!("CXX_{k} = \"{cxx}\"\n", k = spec.env_key));
         out.push_str(&format!("AR_{k} = \"{ar}\"\n\n", k = spec.env_key));
     }
@@ -391,22 +407,26 @@ fn task_build(args: BuildArgs) -> Result<()> {
 fn gradle_variant_task(verb: &str, flavor: Option<&Flavor>, release: bool) -> String {
     let profile = if release { "Release" } else { "Debug" };
     match flavor {
-        None                   => format!("{verb}{profile}"),
+        None => format!("{verb}{profile}"),
         Some(Flavor::Standard) => format!("{verb}Standard{profile}"),
-        Some(Flavor::Legacy)   => format!("{verb}Legacy{profile}"),
+        Some(Flavor::Legacy) => format!("{verb}Legacy{profile}"),
     }
 }
 
-/// Full Android build via the Gradle wrapper.
+/// Full Android build via the Gradle wrapper (native lib compiled first).
 fn task_build_android(args: &BuildArgs) -> Result<()> {
+    task_configure()?;
+    task_build_native(&args.native.abis)?;
     let root = workspace_root();
     let gradle_task = gradle_variant_task("assemble", args.flavor.as_ref(), args.release);
     println!("build: ./gradlew {gradle_task}");
     run_gradlew(&[&gradle_task], &root)
 }
 
-/// Install the app on a connected device or emulator via the Gradle wrapper.
+/// Install the app on a connected device or emulator via the Gradle wrapper (native lib compiled first).
 fn task_run(args: RunArgs) -> Result<()> {
+    task_configure()?;
+    task_build_native(&[])?;
     let root = workspace_root();
     let gradle_task = gradle_variant_task("install", Some(&args.flavor), args.release);
     println!("run: ./gradlew {gradle_task}");
@@ -420,14 +440,17 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
     let abis = resolve_abis(abi_args)?;
 
     for spec in &abis {
-        println!("build(native): {} ({})", spec.android_name, spec.cargo_triple);
+        println!(
+            "build(native): {} ({})",
+            spec.android_name, spec.cargo_triple
+        );
 
         run_cargo(
             &["build", "--release", "--target", spec.cargo_triple],
             &native_dir,
         )?;
 
-        let so_src = native_dir
+        let so_src = root
             .join("target")
             .join(spec.cargo_triple)
             .join("release/libwekit_native.so");
@@ -437,14 +460,14 @@ fn task_build_native(abi_args: &[String]) -> Result<()> {
         fs::create_dir_all(&so_dst_dir)
             .with_context(|| format!("could not create {}", so_dst_dir.display()))?;
         fs::copy(&so_src, &so_dst).with_context(|| {
-            format!(
-                "could not copy {} → {}",
-                so_src.display(),
-                so_dst.display()
-            )
+            format!("could not copy {} → {}", so_src.display(), so_dst.display())
         })?;
 
-        println!("build(native):  {} → {}", so_src.display(), so_dst.display());
+        println!(
+            "build(native):  {} → {}",
+            so_src.display(),
+            so_dst.display()
+        );
     }
 
     Ok(())
@@ -458,7 +481,10 @@ fn task_cargo_cmd(subcommand: &str, abi_args: &[String], extra_args: &[&str]) ->
     let abis = resolve_abis(abi_args)?;
 
     for spec in &abis {
-        println!("{subcommand}: {} ({})", spec.android_name, spec.cargo_triple);
+        println!(
+            "{subcommand}: {} ({})",
+            spec.android_name, spec.cargo_triple
+        );
 
         let mut cmd_args = vec![subcommand, "--target", spec.cargo_triple];
         cmd_args.extend_from_slice(extra_args);

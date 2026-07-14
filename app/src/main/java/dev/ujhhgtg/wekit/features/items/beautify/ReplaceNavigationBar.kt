@@ -62,7 +62,9 @@ import com.composables.icons.materialsymbols.outlinedfilled.Contacts
 import com.composables.icons.materialsymbols.outlinedfilled.Explore
 import com.composables.icons.materialsymbols.outlinedfilled.Home
 import com.composables.icons.materialsymbols.outlinedfilled.Person
+import dev.ujhhgtg.reflekt.firstMethod
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
@@ -81,6 +83,8 @@ import dev.ujhhgtg.wekit.ui.utils.InjectedUiTheme
 import dev.ujhhgtg.wekit.ui.utils.LifecycleOwnerProvider
 import dev.ujhhgtg.wekit.ui.utils.setLifecycleOwner
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.reflection.bool
+import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.math.roundToInt
 
 @Feature(name = "美化首页底部导航栏", categories = ["界面美化"], description = "将首页底部导航栏替换为 Material Design 或 Backdrop 风格")
@@ -261,6 +265,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                         val unreadCount by unreadCountState
                         val finderUnreadCount by finderUnreadCountState
                         val showFinderDot by showFinderDotState
+                        val contactUnreadCount by contactUnreadCountState
 
                         val backgroundColor = if (isSystemInDarkTheme()) Color(0xFF191919) else Color(0xFFF7F7F7)
                         val activeColor = MaterialTheme.colorScheme.primary
@@ -310,6 +315,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                         Badge(containerColor = Color(0xFFFF3B30)) {
                                                             Text(
                                                                 if (unreadCount <= 99) unreadCount.toString() else "99+",
+                                                                color = Color.White, fontSize = 10.sp
+                                                            )
+                                                        }
+                                                    } else if (index == 1 && contactUnreadCount > 0) {
+                                                        Badge(containerColor = Color(0xFFFF3B30)) {
+                                                            Text(
+                                                                if (contactUnreadCount <= 99) contactUnreadCount.toString() else "99+",
                                                                 color = Color.White, fontSize = 10.sp
                                                             )
                                                         }
@@ -428,6 +440,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                                 color = Color.White, fontSize = 10.sp
                                                             )
                                                         }
+                                                    } else if (index == 1 && contactUnreadCount > 0) {
+                                                        Badge(containerColor = Color(0xFFFF3B30)) {
+                                                            Text(
+                                                                if (contactUnreadCount <= 99) contactUnreadCount.toString() else "99+",
+                                                                color = Color.White, fontSize = 10.sp
+                                                            )
+                                                        }
                                                     } else if (index == 2 && showFinderBadge) {
                                                         if (finderUnreadCount > 0) {
                                                             Badge(containerColor = Color(0xFFFF3B30)) {
@@ -521,11 +540,35 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             showFinderDotState.value = show
             result = null
         }
+
+        methodUpdateContactTabUnread.hookBefore {
+            val count = args[0] as Int
+            contactUnreadCountState.intValue = count
+            result = null
+        }
+
+        // Suppress FrostedContentView's bottom blur overlay in floating mode.
+        //
+        // In WeChat 8.0.69, MainUI.q0() (onResume) calls:
+        //   frostedContentView.a(true, tabBar.getHeight())
+        // synchronously during doOnCreate — before our hookAfter fires and
+        // sets the tab bar to GONE. By that point bottomBlurAreaHeight is
+        // already set to the real measured height. Worse, a() has a <= 0
+        // fallback: if height is 0 it computes dimen.b2*density + nav_bar_height,
+        // producing the short frosted-glass strip you see below our bar.
+        // Hooking a() and forcing its first arg (frostedEnabled) to false is the
+        // only reliable fix regardless of call timing.
+        "com.tencent.mm.ui.FrostedContentView".toClass().firstMethod {
+            parameters { it[0] == bool && it[1] == int }
+        }.hookBefore {
+            if (useFloating) args[0] = false
+        }
     }
 
     private val unreadCountState = mutableIntStateOf(0)
     private val finderUnreadCountState = mutableIntStateOf(0)
     private val showFinderDotState = mutableStateOf(false)
+    private val contactUnreadCountState = mutableIntStateOf(0)
 
     /**
      * Non-consuming long-press modifier. Fires [block] when the pointer is held down long enough,
@@ -649,6 +692,13 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         matcher {
             declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
             usingEqStrings("[showFriendPoint] show : ")
+        }
+    }
+
+    private val methodUpdateContactTabUnread by dexMethod {
+        matcher {
+            declaredClass = "com.tencent.mm.ui.LauncherUIBottomTabView"
+            usingEqStrings("[updateContactTabUnread] unread : ")
         }
     }
 }
