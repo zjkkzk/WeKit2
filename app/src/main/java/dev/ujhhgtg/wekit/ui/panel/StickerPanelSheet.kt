@@ -1285,6 +1285,7 @@ private fun StickerSettingsContent() {
             item {
                 ListItem(
                     modifier = Modifier.clickable { numberPrompt = true },
+                    colors = panelListItemColors(),
                     headlineContent = { Text("每行表情数量") },
                     supportingContent = { Text("$columns · 点击输入自定义数量") },
                 )
@@ -1298,7 +1299,6 @@ private fun StickerSettingsContent() {
                     steps = 7,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface)
                         .padding(horizontal = 16.dp),
                 )
             }
@@ -1322,6 +1322,7 @@ private fun StickerSettingsContent() {
             )
             item {
                 ListItem(
+                    colors = panelListItemColors(),
                     headlineContent = { Text("在线表情包一级菜单") },
                     supportingContent = { Text(if (onlinePacksUseList) "列表" else "网格") },
                     trailingContent = {

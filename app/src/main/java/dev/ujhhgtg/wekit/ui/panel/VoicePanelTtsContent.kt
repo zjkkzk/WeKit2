@@ -85,6 +85,7 @@ internal fun TtsContent(
             items(EDGE_TTS_VOICES) { (id, title) ->
                 ListItem(
                     modifier = Modifier.clickable { onSelectEdgeVoice(id) },
+                    colors = panelListItemColors(),
                     headlineContent = { Text(title) },
                     leadingContent = {
                         RadioButton(

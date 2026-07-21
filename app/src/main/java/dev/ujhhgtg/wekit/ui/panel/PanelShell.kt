@@ -188,6 +188,7 @@ internal fun <T> PanelImportModePrompt(
         options.forEach { option ->
             ListItem(
                 modifier = Modifier.clickable { onSelect(option.mode) },
+                colors = panelListItemColors(),
                 headlineContent = { Text(option.title) },
                 supportingContent = { Text(option.description) },
                 leadingContent = { Icon(option.icon, null) },
@@ -212,7 +213,7 @@ fun <T> PanelShell(
     Surface(
         modifier = Modifier.fillMaxSize(),
         shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 3.dp,
     ) {
@@ -225,7 +226,7 @@ fun <T> PanelShell(
                 modifier = Modifier
                     .width(64.dp)
                     .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.88f)),
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.72f)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 items(railItems) { item ->

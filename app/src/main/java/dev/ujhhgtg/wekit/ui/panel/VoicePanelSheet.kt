@@ -1450,6 +1450,7 @@ private fun VoiceList(
                     if (selectable && !voice.isContainer) onToggleSelection?.invoke(voice)
                     else if (voice.isContainer) onOpen?.invoke(voice) else onPreview(voice)
                 },
+                colors = panelListItemColors(),
                 leadingContent = {
                     if (selectable && !voice.isContainer) {
                         Checkbox(
@@ -1745,6 +1746,7 @@ private fun CloneManagerOverlay(
                         items(clones, key = { it.id }) { voice ->
                             ListItem(
                                 modifier = Modifier.clickable { onSelect(voice) },
+                                colors = panelListItemColors(),
                                 headlineContent = { Text(if (voice.id == selectedId) "[当前] ${voice.name}" else voice.name) },
                                 trailingContent = {
                                     IconButton(onClick = { onDelete(voice) }) {
@@ -1780,6 +1782,7 @@ private fun CloneManagerOverlay(
                         items(packs) { pack ->
                             ListItem(
                                 modifier = Modifier.clickable { onSelectSharedPack(pack) },
+                                colors = panelListItemColors(),
                                 headlineContent = { Text(pack.title) },
                                 supportingContent = { Text("${pack.itemCount} 条语音") },
                                 leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
@@ -1814,6 +1817,7 @@ private fun CloneManagerOverlay(
                             items(groups) { group ->
                                 ListItem(
                                     modifier = Modifier.clickable { onSelectExampleGroup(group) },
+                                    colors = panelListItemColors(),
                                     headlineContent = { Text(group) },
                                     leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
                                 )
@@ -1829,6 +1833,7 @@ private fun CloneManagerOverlay(
                         LazyColumn(Modifier.fillMaxSize()) {
                             items(examples, key = { "${it.group}/${it.fileName}" }) { example ->
                                 ListItem(
+                                    colors = panelListItemColors(),
                                     headlineContent = {
                                         Text(example.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     },
@@ -1868,6 +1873,7 @@ private fun ClonePickerOverlay(
         if (clones.isEmpty()) {
             ListItem(
                 modifier = Modifier.clickable { onSelectNone() },
+                colors = panelListItemColors(),
                 headlineContent = { Text("无") },
                 supportingContent = { Text("不使用克隆音色") },
                 leadingContent = {
@@ -1879,6 +1885,7 @@ private fun ClonePickerOverlay(
                 item {
                     ListItem(
                         modifier = Modifier.clickable { onSelectNone() },
+                        colors = panelListItemColors(),
                         headlineContent = { Text("无") },
                         supportingContent = { Text("不使用克隆音色") },
                         leadingContent = {
@@ -1889,6 +1896,7 @@ private fun ClonePickerOverlay(
                 items(clones, key = { it.id }) { voice ->
                     ListItem(
                         modifier = Modifier.clickable { onSelect(voice) },
+                        colors = panelListItemColors(),
                         headlineContent = { Text(voice.name) },
                         leadingContent = {
                             RadioButton(selected = voice.id == selectedId, onClick = { onSelect(voice) })

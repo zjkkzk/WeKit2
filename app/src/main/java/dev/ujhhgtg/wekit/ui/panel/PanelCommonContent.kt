@@ -23,6 +23,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemColors
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -52,6 +54,11 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.PanelSettings
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.roundToLong
+
+@Composable
+internal fun panelListItemColors(): ListItemColors = ListItemDefaults.colors(
+    containerColor = Color.Transparent,
+)
 
 @Composable
 fun <T> PanelPackChips(
@@ -86,6 +93,7 @@ fun PanelAutoCloseSetting(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     ListItem(
+        colors = panelListItemColors(),
         headlineContent = { Text("发送后自动关闭面板") },
         trailingContent = {
             Switch(
@@ -104,6 +112,7 @@ fun PanelHistorySetting(
 ) {
     ListItem(
         modifier = Modifier.clickable(onClick = onCustomValue),
+        colors = panelListItemColors(),
         headlineContent = { Text("最大历史数量") },
         supportingContent = { Text("$value · 点击输入自定义数量") },
     )
@@ -113,7 +122,6 @@ fun PanelHistorySetting(
         valueRange = 0f..1f,
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp),
     )
 }
@@ -124,6 +132,7 @@ fun PanelSortSetting(
     onValueChange: (Boolean) -> Unit,
 ) {
     ListItem(
+        colors = panelListItemColors(),
         headlineContent = { Text("按修改时间排序") },
         supportingContent = { Text(if (newestFirst) "最新优先" else "按名称") },
         trailingContent = {
@@ -137,6 +146,7 @@ fun PanelFunBoxApiClientIdSetting(onClick: () -> Unit) {
     val current = PanelSettings.effectiveFunBoxApiClientWxId
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
+        colors = panelListItemColors(),
         headlineContent = { Text("伪装 FunBox API 客户端微信 ID") },
         supportingContent = { Text(current) },
     )
