@@ -34,6 +34,7 @@ object StickerPanelRepository {
     private val onlineRecentsFile get() = PanelPaths.stickerPanelDir / ".online_recents.json"
     private val statsFile get() = PanelPaths.stickerPanelDir / ".stats.json"
     private val titlesFile get() = PanelPaths.stickerPanelDir / ".titles.json"
+    private val coversFile get() = PanelPaths.stickerPanelDir / ".covers.json"
 
     @Serializable
     private data class StickerStats(val sendCount: Long = 0, val lastSentAt: Long = 0)
@@ -41,6 +42,7 @@ object StickerPanelRepository {
     fun loadPacks(): List<StickerPack> {
         val stats = readStats()
         val titles = readTitles()
+        val covers = readCovers()
         val comparator = when (PanelSettings.stickerSortType) {
             1 -> compareByDescending<Path> { Files.getLastModifiedTime(it).toMillis() }
             else -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }
@@ -57,7 +59,9 @@ object StickerPanelRepository {
                     StickerPack(
                         id = packDir.name,
                         title = packDir.name,
-                        cover = items.firstOrNull()?.localPath,
+                        cover = items.firstOrNull { item ->
+                            item.localPath?.asPath?.name == covers[packDir.name]
+                        }?.localPath ?: items.firstOrNull()?.localPath,
                         source = PanelSource.LOCAL,
                         itemCount = items.size,
                         items = items,
@@ -255,6 +259,13 @@ object StickerPanelRepository {
         atomicWrite(titlesFile, DefaultJson.encodeToString(titles))
     }
 
+    fun setPackCover(filePath: String): Result<Unit> = runCatching {
+        val path = requireLocalSticker(filePath)
+        val covers = readCovers().toMutableMap()
+        covers[path.parent.name] = path.name
+        atomicWrite(coversFile, DefaultJson.encodeToString(covers))
+    }
+
     fun deleteSticker(filePath: String): Result<Unit> = runCatching {
         val path = requireLocalSticker(filePath)
         require(path.deleteIfExists()) { "表情不存在" }
@@ -262,6 +273,13 @@ object StickerPanelRepository {
         atomicWrite(recentsFile, DefaultJson.encodeToString(readRecentPaths().filterNot { it == absolutePath }))
         atomicWrite(statsFile, DefaultJson.encodeToString(readStats().filterKeys { it != absolutePath }))
         atomicWrite(titlesFile, DefaultJson.encodeToString(readTitles().filterKeys { it != absolutePath }))
+        val covers = readCovers()
+        if (covers[path.parent.name] == path.name) {
+            atomicWrite(
+                coversFile,
+                DefaultJson.encodeToString(covers.filterKeys { it != path.parent.name }),
+            )
+        }
     }
 
     fun recordRecent(filePath: String) {
@@ -333,6 +351,13 @@ object StickerPanelRepository {
         if (titlesFile.notExists()) return emptyMap()
         return runCatching {
             DefaultJson.decodeFromString<Map<String, String>>(titlesFile.readText())
+        }.getOrDefault(emptyMap())
+    }
+
+    private fun readCovers(): Map<String, String> {
+        if (coversFile.notExists()) return emptyMap()
+        return runCatching {
+            DefaultJson.decodeFromString<Map<String, String>>(coversFile.readText())
         }.getOrDefault(emptyMap())
     }
 
@@ -464,6 +489,10 @@ object StickerPanelRepository {
             migratePath(value, sourcePrefix, destinationPrefix)
         }
         atomicWrite(titlesFile, DefaultJson.encodeToString(migratedTitles))
+
+        val covers = readCovers().toMutableMap()
+        covers.remove(source.name)?.let { cover -> covers[destination.name] = cover }
+        atomicWrite(coversFile, DefaultJson.encodeToString(covers))
     }
 
     private fun removePathPrefixFromMetadata(directory: Path) {
@@ -474,6 +503,10 @@ object StickerPanelRepository {
         atomicWrite(statsFile, DefaultJson.encodeToString(retainedStats))
         val retainedTitles = readTitles().filterKeys { value -> !pathIsInside(value, prefix) }
         atomicWrite(titlesFile, DefaultJson.encodeToString(retainedTitles))
+        atomicWrite(
+            coversFile,
+            DefaultJson.encodeToString(readCovers().filterKeys { it != directory.name }),
+        )
     }
 
     private fun pathIsInside(value: String, directory: Path): Boolean = runCatching {

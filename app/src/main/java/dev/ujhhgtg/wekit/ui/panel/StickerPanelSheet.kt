@@ -136,6 +136,9 @@ data class StickerPanelActions(
     val setCustomTitle: suspend (String, String) -> Result<Unit> = { _, _ ->
         Result.failure(UnsupportedOperationException())
     },
+    val setPackCover: suspend (String) -> Result<Unit> = {
+        Result.failure(UnsupportedOperationException())
+    },
     val deleteSticker: suspend (String) -> Result<Unit> = {
         Result.failure(UnsupportedOperationException())
     },
@@ -767,6 +770,16 @@ private fun StickerPanelContent(
                     previewSticker = null
                     prompt = StickerPrompt.SetStickerTitle(item)
                 }) else null,
+                onSetCover = if (item.localPath != null) ({
+                    previewSticker = null
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            actions.setPackCover(item.localPath)
+                        }
+                        operationMessage = result.exceptionOrNull()?.message ?: "已设置为封面"
+                        if (result.isSuccess) refreshLocal()
+                    }
+                }) else null,
                 onDelete = if (item.localPath != null) ({
                     previewSticker = null
                     prompt = StickerPrompt.DeleteSticker(item)
@@ -1347,6 +1360,7 @@ private fun StickerPreviewOverlay(
     onSend: () -> Unit,
     onSave: (() -> Unit)?,
     onSetTitle: (() -> Unit)?,
+    onSetCover: (() -> Unit)?,
     onDelete: (() -> Unit)?,
 ) {
     val context = LocalContext.current
@@ -1391,6 +1405,7 @@ private fun StickerPreviewOverlay(
                 TextButton(onClick = onSend) { Text("发送") }
                 if (onSave != null) TextButton(onClick = onSave) { Text("保存到本地") }
                 if (onSetTitle != null) TextButton(onClick = onSetTitle) { Text("设置名称") }
+                if (onSetCover != null) TextButton(onClick = onSetCover) { Text("设置为封面") }
                 if (onDelete != null) {
                     TextButton(onClick = onDelete) {
                         Text("删除", color = MaterialTheme.colorScheme.error)

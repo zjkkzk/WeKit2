@@ -102,6 +102,7 @@ object StickerPanel : SwitchFeature() { // entry implementation in ChatFooterHoo
                         searchOnline = FunBoxStickerRepository::searchText,
                         uploadPack = FunBoxStickerRepository::uploadPack,
                         setCustomTitle = StickerPanelRepository::setCustomTitle,
+                        setPackCover = StickerPanelRepository::setPackCover,
                         deleteSticker = StickerPanelRepository::deleteSticker,
                         ensurePack = { name -> withContext(Dispatchers.IO) { StickerPanelRepository.ensurePack(name) } },
                         saveOnlineSticker = { packId, item -> saveOnlineSticker(packId, item) },
