@@ -69,8 +69,6 @@ import com.composables.icons.materialsymbols.outlined.Arrow_back
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Cloud
 import com.composables.icons.materialsymbols.outlined.Delete
-import com.composables.icons.materialsymbols.outlined.Deselect
-import com.composables.icons.materialsymbols.outlined.Done_all
 import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Folder
 import com.composables.icons.materialsymbols.outlined.History
@@ -142,6 +140,9 @@ data class StickerPanelActions(
     val deleteSticker: suspend (String) -> Result<Unit> = {
         Result.failure(UnsupportedOperationException())
     },
+    val deleteStickers: suspend (List<String>) -> Result<Int> = {
+        Result.failure(UnsupportedOperationException())
+    },
     val ensurePack: suspend (String) -> Result<String> = { Result.failure(UnsupportedOperationException()) },
     val saveOnlineSticker: suspend (String, StickerItem) -> Result<Unit> = { _, _ ->
         Result.failure(UnsupportedOperationException())
@@ -178,6 +179,7 @@ private sealed interface StickerPrompt {
     data class DeletePack(val pack: StickerPack) : StickerPrompt
     data class SetStickerTitle(val item: StickerItem) : StickerPrompt
     data class DeleteSticker(val item: StickerItem) : StickerPrompt
+    data class DeleteStickers(val items: List<StickerItem>) : StickerPrompt
 }
 
 @Composable
@@ -221,8 +223,8 @@ private fun StickerPanelContent(
     var telegramProgress by remember { mutableStateOf<TelegramStickerImportProgress?>(null) }
     var telegramImportJob by remember { mutableStateOf<Job?>(null) }
     var uploadProgress by remember { mutableStateOf<Float?>(null) }
-    var onlineMultiSelect by remember { mutableStateOf(false) }
-    var selectedOnlineStickerKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var multiSelectMode by remember { mutableStateOf(false) }
+    var selectedStickerKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
     var quickSelectionBase by remember { mutableStateOf<Set<String>>(emptySet()) }
     var onlineSaveProgress by remember { mutableStateOf<PanelSaveProgress?>(null) }
     var onlineSaveJob by remember { mutableStateOf<Job?>(null) }
@@ -312,8 +314,8 @@ private fun StickerPanelContent(
         val uniqueItems = items.distinctBy(::stickerSelectionKey)
         if (uniqueItems.isEmpty()) return
         stopOnlineSave()
-        onlineMultiSelect = false
-        selectedOnlineStickerKeys = emptySet()
+        multiSelectMode = false
+        selectedStickerKeys = emptySet()
         onlineSaveProgress = PanelSaveProgress(title, uniqueItems.size)
         onlineSaveJob = scope.launch {
             var succeeded = 0
@@ -383,6 +385,12 @@ private fun StickerPanelContent(
     }
     val selectedOnlinePack = onlinePacks.firstOrNull { it.id == selectedOnlinePackId }
     val onlineItems = (onlineItemsState as? PanelUiState.Content)?.value.orEmpty()
+    val multiSelectItems = when {
+        destination == StickerDestination.PACKS && localDetailPack != null -> localDetailPack.items
+        destination == StickerDestination.ONLINE && selectedOnlinePack != null -> onlineItems
+        else -> emptyList()
+    }
+    val deletingLocalItems = destination == StickerDestination.PACKS && localDetailPack != null
     val recentItems = remember(recent?.items, recentMostUsed) {
         recent?.items.orEmpty().let { items ->
             if (recentMostUsed) {
@@ -449,31 +457,21 @@ private fun StickerPanelContent(
     }
     val localCatalogVisible = localPackLayout != StickerPackLayout.TABS && localDetailPack == null
     val localActionPack = if (localPackLayout == StickerPackLayout.TABS) selectedPack else localDetailPack
-    val panelActions = if (onlineMultiSelect && destination == StickerDestination.ONLINE && selectedOnlinePack != null) {
-        listOf(
-            PanelAction(MaterialSymbols.Outlined.Close, "关闭", showLabel = true) {
-                onlineMultiSelect = false
-                selectedOnlineStickerKeys = emptySet()
+    val panelActions = if (multiSelectMode && multiSelectItems.isNotEmpty()) {
+        panelMultiSelectActions(
+            items = multiSelectItems,
+            selectedKeys = selectedStickerKeys,
+            key = ::stickerSelectionKey,
+            terminalIcon = if (deletingLocalItems) MaterialSymbols.Outlined.Delete else MaterialSymbols.Outlined.Save,
+            terminalLabel = if (deletingLocalItems) "删除" else "保存",
+            onClose = {
+                multiSelectMode = false
+                selectedStickerKeys = emptySet()
             },
-            PanelAction(MaterialSymbols.Outlined.Select_all, "全选", onlineItems.isNotEmpty(), showLabel = true) {
-                selectedOnlineStickerKeys = onlineItems.mapTo(linkedSetOf(), ::stickerSelectionKey)
-            },
-            PanelAction(MaterialSymbols.Outlined.Deselect, "反选", onlineItems.isNotEmpty(), showLabel = true) {
-                selectedOnlineStickerKeys = invertPanelSelection(
-                    selectedOnlineStickerKeys,
-                    onlineItems,
-                    ::stickerSelectionKey,
-                )
-            },
-            PanelAction(MaterialSymbols.Outlined.Done_all, "连选", selectedOnlineStickerKeys.size > 1, showLabel = true) {
-                selectedOnlineStickerKeys = closePanelSelectionRange(
-                    selectedOnlineStickerKeys,
-                    onlineItems,
-                    ::stickerSelectionKey,
-                )
-            },
-            PanelAction(MaterialSymbols.Outlined.Save, "保存", selectedOnlineStickerKeys.isNotEmpty(), showLabel = true) {
-                showStickerPackPicker(onlineItems.filter { stickerSelectionKey(it) in selectedOnlineStickerKeys })
+            onSelectionChange = { selectedStickerKeys = it },
+            onTerminalAction = { items ->
+                if (deletingLocalItems) prompt = StickerPrompt.DeleteStickers(items)
+                else showStickerPackPicker(items)
             },
         )
     } else when (destination) {
@@ -503,6 +501,12 @@ private fun StickerPanelContent(
             add(PanelAction(MaterialSymbols.Outlined.Upload, "上传", localActionPack != null) {
                 localActionPack?.let { prompt = StickerPrompt.UploadPack(it) }
             })
+            if (localPackLayout != StickerPackLayout.TABS) {
+                add(PanelAction(MaterialSymbols.Outlined.Select_all, "多选", !localActionPack?.items.isNullOrEmpty()) {
+                    multiSelectMode = true
+                    selectedStickerKeys = emptySet()
+                })
+            }
             add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal))
         }
 
@@ -546,8 +550,8 @@ private fun StickerPanelContent(
                     loadOnlinePack(selectedOnlinePack)
                 },
                 PanelAction(MaterialSymbols.Outlined.Select_all, "多选", onlineItems.isNotEmpty()) {
-                    onlineMultiSelect = true
-                    selectedOnlineStickerKeys = emptySet()
+                    multiSelectMode = true
+                    selectedStickerKeys = emptySet()
                 },
                 PanelAction(MaterialSymbols.Outlined.Save, "保存", onlineItems.isNotEmpty()) {
                     saveWholeOnlinePack(selectedOnlinePack, onlineItems)
@@ -565,16 +569,16 @@ private fun StickerPanelContent(
             title = title,
             actions = panelActions,
             onSelect = {
-                onlineMultiSelect = false
-                selectedOnlineStickerKeys = emptySet()
+                multiSelectMode = false
+                selectedStickerKeys = emptySet()
                 destination = it
             },
             onDismiss = onDismiss,
             onBack = {
                 when {
-                    onlineMultiSelect -> {
-                        onlineMultiSelect = false
-                        selectedOnlineStickerKeys = emptySet()
+                    multiSelectMode -> {
+                        multiSelectMode = false
+                        selectedStickerKeys = emptySet()
                     }
 
                     destination == StickerDestination.ONLINE && selectedOnlinePack != null -> {
@@ -640,6 +644,21 @@ private fun StickerPanelContent(
                     },
                     onSend = ::send,
                     onLongPress = { previewSticker = it },
+                    selectable = multiSelectMode && localDetailPack != null,
+                    selectedKeys = selectedStickerKeys,
+                    onToggleSelection = { sticker ->
+                        val key = stickerSelectionKey(sticker)
+                        selectedStickerKeys = selectedStickerKeys.toMutableSet().apply {
+                            if (!add(key)) remove(key)
+                        }
+                    },
+                    onRangeStart = { quickSelectionBase = selectedStickerKeys },
+                    onSelectRange = { first, last ->
+                        val items = localDetailPack?.items.orEmpty()
+                        val range = minOf(first, last)..maxOf(first, last)
+                        selectedStickerKeys = quickSelectionBase +
+                                range.mapNotNull { index -> items.getOrNull(index)?.let(::stickerSelectionKey) }
+                    },
                 )
 
                 StickerDestination.ONLINE -> if (selectedOnlinePack == null) {
@@ -658,8 +677,8 @@ private fun StickerPanelContent(
                             gridState = onlinePackGridState,
                             listState = onlinePackListState,
                             onSelectPack = { pack ->
-                                onlineMultiSelect = false
-                                selectedOnlineStickerKeys = emptySet()
+                                multiSelectMode = false
+                                selectedStickerKeys = emptySet()
                                 selectedOnlinePackId = pack.id
                                 scope.launch { onlineItemGridState.scrollToItem(0) }
                                 loadOnlinePack(pack)
@@ -677,18 +696,18 @@ private fun StickerPanelContent(
                             onSend = ::send,
                             onLongPress = { sticker -> previewSticker = sticker },
                             gridState = onlineItemGridState,
-                            selectable = onlineMultiSelect,
-                            selectedKeys = selectedOnlineStickerKeys,
+                            selectable = multiSelectMode,
+                            selectedKeys = selectedStickerKeys,
                             onToggleSelection = { sticker ->
                                 val key = stickerSelectionKey(sticker)
-                                selectedOnlineStickerKeys = selectedOnlineStickerKeys.toMutableSet().apply {
+                                selectedStickerKeys = selectedStickerKeys.toMutableSet().apply {
                                     if (!add(key)) remove(key)
                                 }
                             },
-                            onRangeStart = { quickSelectionBase = selectedOnlineStickerKeys },
+                            onRangeStart = { quickSelectionBase = selectedStickerKeys },
                             onSelectRange = { first, last ->
                                 val range = minOf(first, last)..maxOf(first, last)
-                                selectedOnlineStickerKeys = quickSelectionBase +
+                                selectedStickerKeys = quickSelectionBase +
                                         range.mapNotNull { index -> onlineItems.getOrNull(index)?.let(::stickerSelectionKey) }
                             },
                         )
@@ -922,6 +941,29 @@ private fun StickerPanelContent(
                 },
             )
 
+            is StickerPrompt.DeleteStickers -> PanelConfirmation(
+                title = "删除表情",
+                message = "从本地表情包中删除选中的 ${currentPrompt.items.size} 个表情？",
+                confirmText = "删除",
+                onDismiss = { prompt = null },
+                onConfirm = {
+                    scope.launch {
+                        val paths = currentPrompt.items.mapNotNull(StickerItem::localPath)
+                        val result = withContext(Dispatchers.IO) { actions.deleteStickers(paths) }
+                        prompt = null
+                        operationMessage = result.fold(
+                            onSuccess = { "已删除 $it 个表情" },
+                            onFailure = { it.message ?: "表情删除失败" },
+                        )
+                        if (result.isSuccess) {
+                            multiSelectMode = false
+                            selectedStickerKeys = emptySet()
+                            refreshLocal()
+                        }
+                    }
+                },
+            )
+
             null -> Unit
         }
 
@@ -1146,6 +1188,11 @@ private fun LocalPacksContent(
     onImport: () -> Unit,
     onSend: (StickerItem) -> Unit,
     onLongPress: (StickerItem) -> Unit,
+    selectable: Boolean,
+    selectedKeys: Set<String>,
+    onToggleSelection: (StickerItem) -> Unit,
+    onRangeStart: () -> Unit,
+    onSelectRange: (Int, Int) -> Unit,
 ) {
     if (layout == StickerPackLayout.TABS) {
         Column(Modifier.fillMaxSize()) {
@@ -1190,6 +1237,11 @@ private fun LocalPacksContent(
             onSend = onSend,
             onLongPress = onLongPress,
             gridState = itemGridState,
+            selectable = selectable,
+            selectedKeys = selectedKeys,
+            onToggleSelection = onToggleSelection,
+            onRangeStart = onRangeStart,
+            onSelectRange = onSelectRange,
         )
     }
 }

@@ -53,8 +53,6 @@ import com.composables.icons.materialsymbols.outlined.Check_circle
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Cloud
 import com.composables.icons.materialsymbols.outlined.Delete
-import com.composables.icons.materialsymbols.outlined.Deselect
-import com.composables.icons.materialsymbols.outlined.Done_all
 import com.composables.icons.materialsymbols.outlined.Download
 import com.composables.icons.materialsymbols.outlined.Edit
 import com.composables.icons.materialsymbols.outlined.Folder
@@ -109,6 +107,9 @@ data class VoicePanelActions(
     val createLocalPack: suspend (String) -> Result<String> = { Result.failure(UnsupportedOperationException()) },
     val renameLocalPack: suspend (String, String) -> Result<Unit> = { _, _ -> Result.failure(UnsupportedOperationException()) },
     val deleteLocalPack: suspend (String) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
+    val deleteLocalVoices: suspend (List<String>) -> Result<Int> = {
+        Result.failure(UnsupportedOperationException())
+    },
     val preview: suspend (VoiceItem) -> Result<VoicePreview> = { Result.failure(UnsupportedOperationException()) },
     val releasePreview: (VoicePreview) -> Unit = {},
     val send: suspend (VoiceItem) -> Result<Unit> = { Result.failure(UnsupportedOperationException()) },
@@ -180,6 +181,7 @@ private sealed interface VoicePrompt {
     data class ImportLocal(val pack: VoicePack) : VoicePrompt
     data class RenameLocalPack(val pack: VoicePack) : VoicePrompt
     data class DeleteLocalPack(val pack: VoicePack) : VoicePrompt
+    data class DeleteLocalVoices(val items: List<VoiceItem>) : VoicePrompt
     data object CreateSharedPack : VoicePrompt
     data class RenameSharedPack(val pack: VoicePack) : VoicePrompt
     data class DeleteSharedPack(val pack: VoicePack) : VoicePrompt
@@ -515,6 +517,7 @@ private fun VoicePanelContent(
         providerQuery,
         selectedSharedPack?.id,
         sharedQuery,
+        localPackDetailId,
     ) {
         batchMode = false
         selectedDownloadIds = emptySet()
@@ -615,6 +618,8 @@ private fun VoicePanelContent(
     }
 
     val batchCandidates = when (destination) {
+        VoiceDestination.LOCAL -> localDetailPack?.items.orEmpty()
+
         VoiceDestination.ONLINE -> (providerState as? PanelUiState.Content)?.value?.items
             .orEmpty().filterNot(VoiceItem::isContainer).distinctBy(::voiceSelectionKey)
 
@@ -626,6 +631,7 @@ private fun VoicePanelContent(
 
         else -> emptyList()
     }
+    val deletingLocalVoices = destination == VoiceDestination.LOCAL && localDetailPack != null
 
     fun stopOnlineSave() {
         onlineSaveJob?.cancel()
@@ -715,34 +721,21 @@ private fun VoicePanelContent(
     }
 
     val panelActions = if (batchMode) {
-        listOf(
-            PanelAction(MaterialSymbols.Outlined.Close, "关闭", showLabel = true) {
+        panelMultiSelectActions(
+            items = batchCandidates,
+            selectedKeys = selectedDownloadIds,
+            key = ::voiceSelectionKey,
+            terminalIcon = if (deletingLocalVoices) MaterialSymbols.Outlined.Delete else MaterialSymbols.Outlined.Save,
+            terminalLabel = if (deletingLocalVoices) "删除" else "保存",
+            onClose = {
                 batchMode = false
                 selectedDownloadIds = emptySet()
             },
-            PanelAction(
-                MaterialSymbols.Outlined.Select_all,
-                "全选",
-                enabled = batchCandidates.isNotEmpty(),
-                showLabel = true,
-            ) {
-                selectedDownloadIds = batchCandidates.mapTo(linkedSetOf(), ::voiceSelectionKey)
+            onSelectionChange = { selectedDownloadIds = it },
+            onTerminalAction = { items ->
+                if (deletingLocalVoices) prompt = VoicePrompt.DeleteLocalVoices(items)
+                else showVoicePackPicker(items)
             },
-            PanelAction(MaterialSymbols.Outlined.Deselect, "反选", batchCandidates.isNotEmpty(), showLabel = true) {
-                selectedDownloadIds = invertPanelSelection(selectedDownloadIds, batchCandidates, ::voiceSelectionKey)
-            },
-            PanelAction(MaterialSymbols.Outlined.Done_all, "连选", selectedDownloadIds.size > 1, showLabel = true) {
-                selectedDownloadIds = closePanelSelectionRange(selectedDownloadIds, batchCandidates, ::voiceSelectionKey)
-            },
-            PanelAction(
-                icon = MaterialSymbols.Outlined.Save,
-                label = "保存",
-                enabled = selectedDownloadIds.isNotEmpty(),
-                showLabel = true,
-                onClick = {
-                    showVoicePackPicker(batchCandidates.filter { voiceSelectionKey(it) in selectedDownloadIds })
-                },
-            ),
         )
     } else when (destination) {
         VoiceDestination.LOCAL -> if (localCatalogVisible) {
@@ -765,6 +758,12 @@ private fun VoicePanelContent(
             add(PanelAction(MaterialSymbols.Outlined.Upload_file, "导入", selectedLocal != null) {
                 selectedLocal?.let { prompt = VoicePrompt.ImportLocal(it) }
             })
+            if (localPackLayout == VoicePackLayout.LIST) {
+                add(PanelAction(MaterialSymbols.Outlined.Select_all, "多选", !selectedLocal?.items.isNullOrEmpty()) {
+                    batchMode = true
+                    selectedDownloadIds = emptySet()
+                })
+            }
             add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal))
         }
 
@@ -919,6 +918,14 @@ private fun VoicePanelContent(
                         onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
                         onSend = ::send,
                         onImport = { selectedLocal?.let { prompt = VoicePrompt.ImportLocal(it) } },
+                        selectable = batchMode && localDetailPack != null,
+                        selectedIds = selectedDownloadIds,
+                        onToggleSelection = { item ->
+                            val key = voiceSelectionKey(item)
+                            selectedDownloadIds = selectedDownloadIds.toMutableSet().apply {
+                                if (!add(key)) remove(key)
+                            }
+                        },
                     )
 
                     VoiceDestination.TTS -> TtsContent(
@@ -1260,6 +1267,29 @@ private fun VoicePanelContent(
                 }
             }
 
+            is VoicePrompt.DeleteLocalVoices -> PanelConfirmation(
+                "删除语音",
+                "从本地语音包中删除选中的 ${current.items.size} 条语音？",
+                "删除",
+                { prompt = null },
+            ) {
+                scope.launch {
+                    val paths = current.items.mapNotNull(VoiceItem::localPath)
+                    val result = actions.deleteLocalVoices(paths)
+                    prompt = null
+                    operationMessage = result.fold(
+                        onSuccess = { "已删除 $it 条语音" },
+                        onFailure = { it.message ?: "语音删除失败" },
+                    )
+                    if (result.isSuccess) {
+                        stopPreview()
+                        batchMode = false
+                        selectedDownloadIds = emptySet()
+                        refreshLocal()
+                    }
+                }
+            }
+
             VoicePrompt.CreateSharedPack -> PanelTextPrompt("新建共享语音包", "语音包名称", confirmText = "确定创建", onDismiss = { prompt = null }) { name ->
                 scope.launch {
                     val result = actions.createSharedPack(name)
@@ -1380,6 +1410,9 @@ private fun LocalVoiceContent(
     onPreview: (VoiceItem) -> Unit,
     onSend: (VoiceItem) -> Unit,
     onImport: () -> Unit,
+    selectable: Boolean,
+    selectedIds: Set<String>,
+    onToggleSelection: (VoiceItem) -> Unit,
 ) {
     if (layout == VoicePackLayout.TABS) {
         Column(Modifier.fillMaxSize()) {
@@ -1431,6 +1464,9 @@ private fun LocalVoiceContent(
             onPreview = onPreview,
             onSend = onSend,
             listState = itemListState,
+            selectable = selectable,
+            selectedIds = selectedIds,
+            onToggleSelection = onToggleSelection,
         )
     }
 }

@@ -266,20 +266,38 @@ object StickerPanelRepository {
         atomicWrite(coversFile, DefaultJson.encodeToString(covers))
     }
 
-    fun deleteSticker(filePath: String): Result<Unit> = runCatching {
-        val path = requireLocalSticker(filePath)
-        require(path.deleteIfExists()) { "表情不存在" }
-        val absolutePath = path.absolutePathString()
-        atomicWrite(recentsFile, DefaultJson.encodeToString(readRecentPaths().filterNot { it == absolutePath }))
-        atomicWrite(statsFile, DefaultJson.encodeToString(readStats().filterKeys { it != absolutePath }))
-        atomicWrite(titlesFile, DefaultJson.encodeToString(readTitles().filterKeys { it != absolutePath }))
-        val covers = readCovers()
-        if (covers[path.parent.name] == path.name) {
-            atomicWrite(
-                coversFile,
-                DefaultJson.encodeToString(covers.filterKeys { it != path.parent.name }),
-            )
-        }
+    fun deleteSticker(filePath: String): Result<Unit> =
+        deleteStickers(listOf(filePath)).map { }
+
+    fun deleteStickers(filePaths: List<String>): Result<Int> = runCatching {
+        val paths = filePaths.map(::requireLocalSticker).distinct()
+        require(paths.isNotEmpty()) { "没有选择表情" }
+        paths.forEach { path -> require(path.deleteIfExists()) { "表情不存在" } }
+
+        val deletedPaths = paths.mapTo(hashSetOf()) { it.absolutePathString() }
+        atomicWrite(
+            recentsFile,
+            DefaultJson.encodeToString(readRecentPaths().filterNot { it in deletedPaths }),
+        )
+        atomicWrite(
+            statsFile,
+            DefaultJson.encodeToString(readStats().filterKeys { it !in deletedPaths }),
+        )
+        atomicWrite(
+            titlesFile,
+            DefaultJson.encodeToString(readTitles().filterKeys { it !in deletedPaths }),
+        )
+
+        val deletedCovers = paths.mapTo(hashSetOf()) { it.parent.name to it.name }
+        atomicWrite(
+            coversFile,
+            DefaultJson.encodeToString(
+                readCovers().filterNot { (packName, fileName) ->
+                    (packName to fileName) in deletedCovers
+                },
+            ),
+        )
+        paths.size
     }
 
     fun recordRecent(filePath: String) {

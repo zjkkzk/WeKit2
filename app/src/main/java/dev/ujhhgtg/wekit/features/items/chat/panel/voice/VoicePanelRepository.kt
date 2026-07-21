@@ -132,6 +132,27 @@ object VoicePanelRepository {
         removeStatsPrefix(directory)
     }
 
+    fun deleteVoices(filePaths: List<String>): Result<Int> = runCatching {
+        val root = PanelPaths.voicePanelDir.toAbsolutePath().normalize()
+        val paths = filePaths.map { value ->
+            value.asPath.toAbsolutePath().normalize().also { path ->
+                require(
+                    path.startsWith(root) && path.parent != root &&
+                            path.isRegularFile() && isVoiceFile(path),
+                ) { "语音路径无效" }
+            }
+        }.distinct()
+        require(paths.isNotEmpty()) { "没有选择语音" }
+        paths.forEach { path -> require(path.deleteIfExists()) { "语音不存在" } }
+
+        val deletedPaths = paths.mapTo(hashSetOf()) { it.absolutePathString() }
+        atomicWrite(
+            statsFile,
+            DefaultJson.encodeToString(readStats().filterKeys { it !in deletedPaths }),
+        )
+        paths.size
+    }
+
     fun importVoice(packId: String, displayName: String, input: InputStream): Result<VoiceItem> = runCatching {
         val safeFile = sanitizeName(displayName).ifBlank { "voice.mp3" }
         val extension = safeFile.substringAfterLast('.', "mp3").lowercase()
