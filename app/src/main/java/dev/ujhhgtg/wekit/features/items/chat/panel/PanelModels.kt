@@ -109,6 +109,17 @@ enum class StickerDestination {
     SETTINGS,
 }
 
+enum class StickerPackLayout {
+    TABS,
+    GRID,
+    LIST,
+}
+
+enum class VoicePackLayout {
+    TABS,
+    LIST,
+}
+
 enum class VoiceDestination {
     RECENT,
     SEARCH,

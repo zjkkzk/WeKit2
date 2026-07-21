@@ -16,7 +16,10 @@ object PanelSettings {
     var voiceSortType by prefOption("voice_panel_sort_type", 0)
     var stickerAutoClose by prefOption("sticker_panel_auto_close", true)
     var voiceAutoClose by prefOption("voice_panel_auto_close", true)
-    var onlineStickerPacksUseList by prefOption("sticker_panel_online_packs_use_list", false)
+    private var legacyOnlineStickerPacksUseList by prefOption("sticker_panel_online_packs_use_list", false)
+    private var localStickerPackLayoutValue by prefOption("sticker_panel_local_pack_layout", "TABS")
+    private var onlineStickerPackLayoutValue by prefOption("sticker_panel_online_pack_layout", "")
+    private var localVoicePackLayoutValue by prefOption("voice_panel_local_pack_layout", "TABS")
     var onlineStickerSortMode by prefOption("sticker_panel_online_sort_mode", 0)
     var selectedVoiceProvider by prefOption("voice_panel_selected_provider", "funbox_share")
     var selectedEdgeVoice by prefOption("voice_panel_edge_voice", "zh-CN-XiaoxiaoNeural")
@@ -24,6 +27,31 @@ object PanelSettings {
         "funbox_api_client_wxid",
         DEFAULT_FUNBOX_API_CLIENT_WXID,
     )
+    var telegramBotToken by prefOption("sticker_panel_telegram_bot_token", "")
+
+    var localStickerPackLayout: StickerPackLayout
+        get() = StickerPackLayout.entries.firstOrNull { it.name == localStickerPackLayoutValue }
+            ?: StickerPackLayout.TABS
+        set(value) {
+            localStickerPackLayoutValue = value.name
+        }
+
+    var onlineStickerPackLayout: StickerPackLayout
+        get() = StickerPackLayout.entries
+            .firstOrNull { it != StickerPackLayout.TABS && it.name == onlineStickerPackLayoutValue }
+            ?: if (legacyOnlineStickerPacksUseList) StickerPackLayout.LIST else StickerPackLayout.GRID
+        set(value) {
+            val normalized = value.takeUnless { it == StickerPackLayout.TABS } ?: StickerPackLayout.GRID
+            onlineStickerPackLayoutValue = normalized.name
+            legacyOnlineStickerPacksUseList = normalized == StickerPackLayout.LIST
+        }
+
+    var localVoicePackLayout: VoicePackLayout
+        get() = VoicePackLayout.entries.firstOrNull { it.name == localVoicePackLayoutValue }
+            ?: VoicePackLayout.TABS
+        set(value) {
+            localVoicePackLayoutValue = value.name
+        }
 
     val effectiveFunBoxApiClientWxId: String
         get() = funBoxApiClientWxId.takeIf(::isValidFunBoxApiClientWxId)
@@ -38,5 +66,9 @@ object PanelSettings {
         return "wxid_" + bytes.joinToString("") { "%02x".format(it) }
     }
 
+    fun isValidTelegramBotToken(value: String): Boolean =
+        TELEGRAM_BOT_TOKEN_REGEX.matches(value.trim())
+
     private val FUNBOX_WXID_REGEX = Regex("[A-Za-z][A-Za-z0-9_-]{5,63}")
+    private val TELEGRAM_BOT_TOKEN_REGEX = Regex("[0-9]{6,12}:[A-Za-z0-9_-]{30,64}")
 }

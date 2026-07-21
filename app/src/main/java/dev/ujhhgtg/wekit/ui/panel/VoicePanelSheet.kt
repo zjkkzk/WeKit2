@@ -79,6 +79,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.RECENT_PACK_ID
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceDestination
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceItem
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePack
+import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePackLayout
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoicePreview
 import dev.ujhhgtg.wekit.features.items.chat.panel.VoiceProviderPage
 import dev.ujhhgtg.wekit.features.items.chat.panel.voice.VoiceProvider
@@ -218,6 +219,8 @@ private fun VoicePanelContent(
     var selectedLocalId by remember {
         mutableStateOf(initialPacks.firstOrNull { it.id != RECENT_PACK_ID }?.id)
     }
+    var localPackDetailId by remember { mutableStateOf<String?>(null) }
+    var localPackLayout by remember { mutableStateOf(PanelSettings.localVoicePackLayout) }
     var localQuery by remember { mutableStateOf("") }
     var destination by remember {
         mutableStateOf(
@@ -269,6 +272,8 @@ private fun VoicePanelContent(
     var onlineSaveJob by remember { mutableStateOf<Job?>(null) }
     val providerRootListState = rememberLazyListState()
     val providerChildListState = rememberLazyListState()
+    val localPackListState = rememberLazyListState()
+    val localItemListState = rememberLazyListState()
 
     DisposableEffect(convertedTts) {
         val generated = convertedTts
@@ -285,6 +290,9 @@ private fun VoicePanelContent(
             localPacks = packs
             if (selectedLocalId !in localPacks.map { it.id }) {
                 selectedLocalId = localPacks.firstOrNull { it.id != RECENT_PACK_ID }?.id
+            }
+            if (localPackDetailId !in localPacks.map { it.id }) {
+                localPackDetailId = null
             }
         }
     }
@@ -570,8 +578,12 @@ private fun VoicePanelContent(
 
     val recent = localPacks.firstOrNull { it.id == RECENT_PACK_ID }
     val editableLocalPacks = localPacks.filter { it.id != RECENT_PACK_ID }
-    val selectedLocal = editableLocalPacks.firstOrNull { it.id == selectedLocalId }
+    val selectedLocalTab = editableLocalPacks.firstOrNull { it.id == selectedLocalId }
         ?: editableLocalPacks.firstOrNull()
+    val localDetailPack = if (localPackLayout == VoicePackLayout.TABS) null
+    else editableLocalPacks.firstOrNull { it.id == localPackDetailId }
+    val selectedLocal = if (localPackLayout == VoicePackLayout.TABS) selectedLocalTab else localDetailPack
+    val localCatalogVisible = localPackLayout == VoicePackLayout.LIST && localDetailPack == null
     val recentItems = remember(recent?.items, recentMostUsed) {
         recent?.items.orEmpty().let { items ->
             if (recentMostUsed) {
@@ -733,19 +745,28 @@ private fun VoicePanelContent(
             ),
         )
     } else when (destination) {
-        VoiceDestination.LOCAL -> listOf(
-            PanelAction(MaterialSymbols.Outlined.Add, "新建语音包") { prompt = VoicePrompt.CreateLocalPack },
-            PanelAction(MaterialSymbols.Outlined.Edit, "重命名", selectedLocal != null) {
+        VoiceDestination.LOCAL -> if (localCatalogVisible) {
+            listOf(
+                PanelAction(MaterialSymbols.Outlined.Add, "新建语音包") { prompt = VoicePrompt.CreateLocalPack },
+                PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal),
+            )
+        } else buildList {
+            if (localPackLayout == VoicePackLayout.LIST) {
+                add(PanelAction(MaterialSymbols.Outlined.Arrow_back, "返回") { localPackDetailId = null })
+            } else {
+                add(PanelAction(MaterialSymbols.Outlined.Add, "新建语音包") { prompt = VoicePrompt.CreateLocalPack })
+            }
+            add(PanelAction(MaterialSymbols.Outlined.Edit, "重命名", selectedLocal != null) {
                 selectedLocal?.let { prompt = VoicePrompt.RenameLocalPack(it) }
-            },
-            PanelAction(MaterialSymbols.Outlined.Delete, "删除", selectedLocal != null) {
+            })
+            add(PanelAction(MaterialSymbols.Outlined.Delete, "删除", selectedLocal != null) {
                 selectedLocal?.let { prompt = VoicePrompt.DeleteLocalPack(it) }
-            },
-            PanelAction(MaterialSymbols.Outlined.Upload_file, "导入", selectedLocal != null) {
+            })
+            add(PanelAction(MaterialSymbols.Outlined.Upload_file, "导入", selectedLocal != null) {
                 selectedLocal?.let { prompt = VoicePrompt.ImportLocal(it) }
-            },
-            PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal),
-        )
+            })
+            add(PanelAction(MaterialSymbols.Outlined.Refresh, "刷新", onClick = ::refreshLocal))
+        }
 
         VoiceDestination.SEARCH -> emptyList()
         VoiceDestination.ONLINE -> buildList {
@@ -844,6 +865,11 @@ private fun VoicePanelContent(
                         sharedItemsState = PanelUiState.Empty("选择一个语音包")
                     }
 
+                    destination == VoiceDestination.LOCAL &&
+                            localPackLayout == VoicePackLayout.LIST && localPackDetailId != null -> {
+                        localPackDetailId = null
+                    }
+
                     else -> onDismiss()
                 }
             },
@@ -878,9 +904,18 @@ private fun VoicePanelContent(
 
                     VoiceDestination.LOCAL -> LocalVoiceContent(
                         packs = editableLocalPacks,
+                        layout = localPackLayout,
                         selected = selectedLocal,
                         playingId = playingId,
-                        onSelectPack = { selectedLocalId = it.id },
+                        packListState = localPackListState,
+                        itemListState = localItemListState,
+                        onSelectPack = {
+                            selectedLocalId = it.id
+                            if (localPackLayout == VoicePackLayout.LIST) {
+                                localPackDetailId = it.id
+                                scope.launch { localItemListState.scrollToItem(0) }
+                            }
+                        },
                         onPreview = { item -> preview(item.id, item.title, item) { actions.preview(item) } },
                         onSend = ::send,
                         onImport = { selectedLocal?.let { prompt = VoicePrompt.ImportLocal(it) } },
@@ -1041,7 +1076,14 @@ private fun VoicePanelContent(
                         onRetry = ::loadMySharedPacks,
                     )
 
-                    VoiceDestination.SETTINGS -> VoiceSettingsContent()
+                    VoiceDestination.SETTINGS -> VoiceSettingsContent(
+                        localPackLayout = localPackLayout,
+                        onLocalPackLayoutChange = {
+                            localPackLayout = it
+                            localPackDetailId = null
+                            PanelSettings.localVoicePackLayout = it
+                        },
+                    )
                 }
             }
         }
@@ -1363,30 +1405,67 @@ private fun VoiceImportModePrompt(
 @Composable
 private fun LocalVoiceContent(
     packs: List<VoicePack>,
+    layout: VoicePackLayout,
     selected: VoicePack?,
     playingId: String?,
+    packListState: LazyListState,
+    itemListState: LazyListState,
     onSelectPack: (VoicePack) -> Unit,
     onPreview: (VoiceItem) -> Unit,
     onSend: (VoiceItem) -> Unit,
     onImport: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
-        if (packs.isNotEmpty()) {
-            PanelPackChips(
-                packs = packs,
-                selectedId = selected?.id,
-                id = VoicePack::id,
-                title = VoicePack::title,
-                onSelect = onSelectPack,
-            )
+    if (layout == VoicePackLayout.TABS) {
+        Column(Modifier.fillMaxSize()) {
+            if (packs.isNotEmpty()) {
+                PanelPackChips(
+                    packs = packs,
+                    selectedId = selected?.id,
+                    id = VoicePack::id,
+                    title = VoicePack::title,
+                    onSelect = onSelectPack,
+                )
+            }
+            if (selected == null) {
+                PanelEmptyAction("暂无本地语音包", "请先新建语音包")
+            } else if (selected.items.isEmpty()) {
+                PanelEmptyAction("语音包中还没有语音", "从文件导入", onImport)
+            } else {
+                VoiceList(selected.items, playingId, onPreview, onSend)
+            }
         }
-        if (selected == null) {
+    } else if (selected == null) {
+        if (packs.isEmpty()) {
             PanelEmptyAction("暂无本地语音包", "请先新建语音包")
-        } else if (selected.items.isEmpty()) {
-            PanelEmptyAction("语音包中还没有语音", "从文件导入", onImport)
         } else {
-            VoiceList(selected.items, playingId, onPreview, onSend)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                state = packListState,
+            ) {
+                items(packs, key = VoicePack::id) { pack ->
+                    ListItem(
+                        modifier = Modifier.clickable { onSelectPack(pack) },
+                        colors = panelListItemColors(),
+                        headlineContent = {
+                            Text(pack.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
+                        supportingContent = { Text("${pack.itemCount} 条语音") },
+                        leadingContent = { Icon(MaterialSymbols.Outlined.Folder, null) },
+                    )
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                }
+            }
         }
+    } else if (selected.items.isEmpty()) {
+        PanelEmptyAction("语音包中还没有语音", "从文件导入", onImport)
+    } else {
+        VoiceList(
+            voices = selected.items,
+            playingId = playingId,
+            onPreview = onPreview,
+            onSend = onSend,
+            listState = itemListState,
+        )
     }
 }
 
@@ -1637,7 +1716,10 @@ private fun SharedVoiceContent(
 }
 
 @Composable
-private fun VoiceSettingsContent() {
+private fun VoiceSettingsContent(
+    localPackLayout: VoicePackLayout,
+    onLocalPackLayoutChange: (VoicePackLayout) -> Unit,
+) {
     var maxHistory by remember { mutableLongStateOf(PanelSettings.voiceMaxHistory.coerceAtLeast(1L)) }
     var sortType by remember { mutableIntStateOf(PanelSettings.voiceSortType) }
     var autoClose by remember { mutableStateOf(PanelSettings.voiceAutoClose) }
@@ -1646,6 +1728,17 @@ private fun VoiceSettingsContent() {
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize()) {
             item { PanelFunBoxApiClientIdSetting { clientIdPrompt = true } }
+            item {
+                PanelDropdownSetting(
+                    title = "本地语音包一级界面",
+                    selected = localPackLayout,
+                    options = listOf(
+                        VoicePackLayout.TABS to "Tab 栏",
+                        VoicePackLayout.LIST to "列表",
+                    ),
+                    onSelected = onLocalPackLayoutChange,
+                )
+            }
             panelCollectionSettings(
                 maxHistory = maxHistory,
                 onMaxHistoryChange = {

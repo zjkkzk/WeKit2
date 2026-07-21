@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -41,10 +43,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Arrow_drop_down
 import com.composables.icons.materialsymbols.outlined.Autorenew
+import com.composables.icons.materialsymbols.outlined.Check
 import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Person
 import com.composables.icons.materialsymbols.outlined.Search
@@ -150,6 +155,94 @@ fun PanelFunBoxApiClientIdSetting(onClick: () -> Unit) {
         headlineContent = { Text("伪装 FunBox API 客户端微信 ID") },
         supportingContent = { Text(current) },
     )
+}
+
+@Composable
+fun PanelTelegramBotTokenSetting(
+    configured: Boolean,
+    onClick: () -> Unit,
+) {
+    ListItem(
+        modifier = Modifier.clickable(onClick = onClick),
+        colors = panelListItemColors(),
+        headlineContent = { Text("Telegram Bot Token") },
+        supportingContent = {
+            Text(if (configured) "已设置" else "未设置")
+        },
+    )
+}
+
+@Composable
+fun PanelTelegramBotTokenPrompt(
+    initialValue: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var input by remember(initialValue) { mutableStateOf(initialValue) }
+    val normalized = input.trim()
+    val valid = normalized.isBlank() || PanelSettings.isValidTelegramBotToken(normalized)
+    PanelFullOverlay(onDismiss = onDismiss) {
+        Text("Telegram Bot Token", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Token 仅保存在本机，用于从 Telegram Bot API 导入表情包。清空可停用此功能。",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        OutlinedTextField(
+            value = input,
+            onValueChange = { input = it },
+            label = { Text("Bot Token") },
+            supportingText = if (valid) null else ({ Text("请输入有效的 Telegram Bot Token") }),
+            isError = !valid,
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f))
+            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = { onConfirm(normalized) }, enabled = valid) { Text("确定") }
+        }
+    }
+}
+
+@Composable
+fun <T> PanelDropdownSetting(
+    title: String,
+    selected: T,
+    options: List<Pair<T, String>>,
+    onSelected: (T) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.firstOrNull { it.first == selected }?.second.orEmpty()
+    Box(Modifier.fillMaxWidth()) {
+        ListItem(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = true },
+            colors = panelListItemColors(),
+            headlineContent = { Text(title) },
+            supportingContent = { Text(selectedLabel) },
+            trailingContent = { Icon(MaterialSymbols.Outlined.Arrow_drop_down, null) },
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            options.forEach { (value, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    trailingIcon = if (value == selected) ({
+                        Icon(MaterialSymbols.Outlined.Check, null)
+                    }) else null,
+                    onClick = {
+                        expanded = false
+                        onSelected(value)
+                    },
+                )
+            }
+        }
+    }
 }
 
 @Composable

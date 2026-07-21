@@ -15,6 +15,7 @@ import dev.ujhhgtg.wekit.features.items.chat.panel.pickPanelFiles
 import dev.ujhhgtg.wekit.features.items.chat.panel.service.FunBoxServiceClient
 import dev.ujhhgtg.wekit.features.items.chat.panel.service.FunBoxStickerRepository
 import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.StickerPanelRepository
+import dev.ujhhgtg.wekit.features.items.chat.panel.sticker.TelegramStickerPackRepository
 import dev.ujhhgtg.wekit.ui.panel.StickerImportMode
 import dev.ujhhgtg.wekit.ui.panel.StickerPanelActions
 import dev.ujhhgtg.wekit.ui.panel.showStickerPanelSheet
@@ -87,8 +88,11 @@ object StickerPanel : SwitchFeature() { // entry implementation in ChatFooterHoo
                                         }
                                     }
                                 }
+
+                                StickerImportMode.TELEGRAM -> Unit
                             }
                         },
+                        importTelegramStickerSet = TelegramStickerPackRepository::importStickerSet,
                         createPack = { name -> withContext(Dispatchers.IO) { StickerPanelRepository.createPack(name) } },
                         renamePack = StickerPanelRepository::renamePack,
                         deletePack = StickerPanelRepository::deletePack,

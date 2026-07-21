@@ -57,6 +57,7 @@ object StickerPanelRepository {
                     StickerPack(
                         id = packDir.name,
                         title = packDir.name,
+                        cover = items.firstOrNull()?.localPath,
                         source = PanelSource.LOCAL,
                         itemCount = items.size,
                         items = items,
@@ -181,6 +182,57 @@ object StickerPanelRepository {
     fun hasOnlineSticker(packName: String, item: StickerItem): Boolean = runCatching {
         existingOnlinePath(packPath(requirePackName(packName)), item) != null
     }.getOrDefault(false)
+
+    fun hasTelegramSticker(packName: String, fileUniqueId: String): Boolean = runCatching {
+        existingStablePath(
+            packPath(requirePackName(packName)),
+            telegramIdentity(fileUniqueId),
+        ) != null
+    }.getOrDefault(false)
+
+    fun importTelegramSticker(
+        packName: String,
+        fileUniqueId: String,
+        input: InputStream,
+    ): Result<StickerItem> = runCatching {
+        val safePack = requirePackName(packName)
+        val packDir = packPath(safePack).also { it.createDirectories() }
+        val identity = telegramIdentity(fileUniqueId)
+        existingStablePath(packDir, identity)?.let { existing ->
+            return@runCatching existing.toItem(
+                safePack,
+                readStats(),
+                readTitles(),
+                PanelSource.IMPORTED,
+            )
+        }
+        val temporary = packDir / "$identity.part"
+        try {
+            input.use { Files.copy(it, temporary, StandardCopyOption.REPLACE_EXISTING) }
+            require(Files.size(temporary) > 0L) { "Telegram 未返回表情数据" }
+            val extension = detectImageExtension(temporary)
+                ?: throw IllegalArgumentException("Telegram 表情转换结果格式不受支持")
+            val destination = packDir / "$identity.$extension"
+            runCatching {
+                Files.move(
+                    temporary,
+                    destination,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            }.getOrElse { Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING) }
+            destination.toItem(safePack, readStats(), readTitles(), PanelSource.IMPORTED)
+        } finally {
+            temporary.deleteIfExists()
+        }
+    }
+
+    fun deleteTelegramSticker(packName: String, fileUniqueId: String): Result<Unit> = runCatching {
+        val packDir = packPath(requirePackName(packName))
+        val path = existingStablePath(packDir, telegramIdentity(fileUniqueId))
+            ?: return@runCatching
+        deleteSticker(path.absolutePathString()).getOrThrow()
+    }
 
     fun detectImageExtension(data: ByteArray): String? = when {
         data.startsWith(byteArrayOf(0x47, 0x49, 0x46, 0x38)) -> "gif"
@@ -337,9 +389,19 @@ object StickerPanelRepository {
     private fun onlineIdentity(item: StickerItem): String =
         sanitizeName(item.remoteObjectId ?: item.id).ifBlank { "sticker" }.take(96)
 
+    private fun telegramIdentity(fileUniqueId: String): String =
+        "telegram_" + fileUniqueId.replace(Regex("[^A-Za-z0-9_-]"), "_")
+            .ifBlank { "sticker" }
+            .take(80)
+
     private fun existingOnlinePath(packDir: Path, item: StickerItem): Path? {
         if (!packDir.isDirectory()) return null
         val identity = onlineIdentity(item)
+        return existingStablePath(packDir, identity)
+    }
+
+    private fun existingStablePath(packDir: Path, identity: String): Path? {
+        if (!packDir.isDirectory()) return null
         return packDir.listDirectoryEntries("$identity.*").firstOrNull { path ->
             path.extension.lowercase() in supportedExtensions && path.isRegularFile() && Files.size(path) > 0L
         }

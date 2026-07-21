@@ -1,9 +1,11 @@
 use std::{env, path::PathBuf};
 
 fn main() {
-    println!("cargo:rustc-link-lib=log");
-    println!("cargo:rustc-link-lib=dl");
-    println!("cargo:rustc-link-lib=unwind");
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        println!("cargo:rustc-link-lib=log");
+        println!("cargo:rustc-link-lib=dl");
+        println!("cargo:rustc-link-lib=unwind");
+    }
 
     let bindings = bindgen::Builder::default()
         .header("include/native_hook.h")
