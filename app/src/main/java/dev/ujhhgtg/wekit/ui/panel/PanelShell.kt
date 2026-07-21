@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.ui.panel
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
+import android.os.Build
 import android.view.Gravity
 import android.view.Window
 import android.view.WindowManager
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -54,11 +57,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Close
 import dev.ujhhgtg.wekit.features.items.chat.panel.PanelUiState
 import dev.ujhhgtg.wekit.ui.utils.CommonContextWrapper
 import dev.ujhhgtg.wekit.ui.utils.InjectedUiTheme
+import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
 data class PanelRailItem<T>(
     val destination: T,
@@ -85,6 +91,7 @@ class PanelDialogScope internal constructor(private val dialog: Dialog) {
     fun dismiss() = dialog.dismiss()
 }
 
+@Suppress("DEPRECATION")
 fun showPanelDialog(
     context: Context,
     onDismiss: () -> Unit = {},
@@ -100,9 +107,25 @@ fun showPanelDialog(
     dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
     dialog.window?.apply {
         setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
+        addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        clearFlags(
+            WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or
+                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION,
+        )
+        WindowCompat.setDecorFitsSystemWindows(this, false)
+        statusBarColor = Color.TRANSPARENT
+        navigationBarColor = Color.TRANSPARENT
+        navigationBarDividerColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            isStatusBarContrastEnforced = false
+            isNavigationBarContrastEnforced = false
+        }
+        WindowInsetsControllerCompat(this, decorView).apply {
+            isAppearanceLightStatusBars = !wrapped.isDarkMode
+            isAppearanceLightNavigationBars = !wrapped.isDarkMode
+        }
         addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        setDimAmount(0.44f)
-        @Suppress("DEPRECATION")
+        setDimAmount(0.3f)
         setSoftInputMode(
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN,
@@ -118,6 +141,7 @@ fun showPanelDialog(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .imePadding()
                                 .clickable(
                                     indication = null,
                                     interactionSource = null,
@@ -192,7 +216,11 @@ fun <T> PanelShell(
         contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 3.dp,
     ) {
-        Row(Modifier.fillMaxSize()) {
+        Row(
+            Modifier
+                .fillMaxSize()
+                .navigationBarsPadding(),
+        ) {
             LazyColumn(
                 modifier = Modifier
                     .width(64.dp)
